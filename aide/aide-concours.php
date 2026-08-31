@@ -480,6 +480,18 @@ include('Common/Templates/head.php');
                 <a href="<?php echo $basePath; ?>Qualification/index.php" class="task-link" >Mise à jour du classement (à faire pour tous les Dépôts/Distances)</a>
             </li>
             
+            <?php if (file_exists(dirname(dirname(__FILE__)) . '/ianselp/index.php')): ?>
+            <li class="task-item">
+                <span class="task-icon">📺</span>
+                <a href="<?php echo $basePath; ?>Modules/Custom/ianselp/index.php" class="task-link" >Scores en direct (affichage sur écran / vidéoprojecteur)</a>
+                <div class="task-actions">
+                    <a href="<?php echo $basePath; ?>Modules/Custom/ianselp/live.php" target="_blank"
+                       class="btn-small btn-primary"
+                       >Ouvrir l'écran</a>
+                </div>
+            </li>
+            <?php endif; ?>
+            
             <li class="task-item">
                 <span class="task-icon">🖨️</span>
                 <a href="<?php echo $basePath; ?>Qualification/PrnIndividualAbs.php" class="task-link" >Impression des résultats</a>
