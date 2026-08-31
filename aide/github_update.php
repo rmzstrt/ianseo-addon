@@ -175,8 +175,11 @@ $count = 0;
 $errorCount = 0;
 $skippedCount = 0;
 
-// Fichiers à ne PAS remplacer s'ils existent déjà
-$protectedFiles = ['menu.php', 'Prix.txt', 'addon_source.php'];
+// Fichiers à ne PAS remplacer s'ils existent déjà.
+// Chemins relatifs à Modules/Custom/, et non simples noms de fichiers :
+// sinon tout fichier portant le même nom dans un sous-dossier serait
+// protégé lui aussi, et ne serait jamais mis à jour.
+$protectedFiles = ['menu.php', 'Greffe/Prix.txt', 'aide/addon_source.php'];
 
 $iterator = new RecursiveIteratorIterator(
     new RecursiveDirectoryIterator($sourceDir, RecursiveDirectoryIterator::SKIP_DOTS),
@@ -187,11 +190,11 @@ foreach ($iterator as $item) {
     if ($item->isFile()) {
         $relativePath = substr($item->getPathname(), strlen($sourceDir));
         $destPath = $customDir . $relativePath;
-        $filename = basename($destPath);
+        $relativeKey = ltrim(str_replace(DIRECTORY_SEPARATOR, '/', $relativePath), '/');
         
         // Vérifier si c'est un fichier protégé qui existe déjà
-        if (in_array($filename, $protectedFiles) && file_exists($destPath)) {
-            logMsg("Fichier protégé conservé: $filename", 'info');
+        if (in_array($relativeKey, $protectedFiles) && file_exists($destPath)) {
+            logMsg("Fichier protégé conservé: $relativeKey", 'info');
             $skippedCount++;
             continue;
         }
