@@ -1,0 +1,5 @@
+# Normalise les fins de ligne : LF dans le dépôt, quel que soit l'OS de travail.
+# Le module est déployé sur des serveurs Linux comme sur des postes Windows.
+* text=auto
+*.php text eol=lf
+*.md  text eol=lf
