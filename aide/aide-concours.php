@@ -15,6 +15,8 @@
  */
 
 require_once(dirname(dirname(__FILE__)) . '/config.php');
+require_once('Common/Fun_Sessions.inc.php');
+require_once(dirname(__FILE__) . '/addon_source.php');
 
 // Chercher Fun_Various.inc.php dans plusieurs chemins possibles
 $possiblePaths = array(
@@ -34,46 +36,16 @@ foreach ($possiblePaths as $path) {
 CheckTourSession(true);
 checkACL(AclParticipants, AclReadOnly);
 
-$TourId = $_SESSION['TourId'];
 $PAGE_TITLE = 'Aide Concours - Procédures et Raccourcis';
 $IncludeJquery = true;
 
-// Récupérer les sessions existantes
+// Récupérer les départs (sessions de qualification) réellement définis pour
+// ce tournoi, via la fonction officielle d'I@nseo.
 $existingSessions = array();
-
-// Utiliser votre requête SQL exacte
-$sql = "SELECT DISTINCT q.QuSession 
-        FROM Qualifications q 
-        INNER JOIN Entries e ON q.QuId = e.EnId 
-        WHERE e.EnTournament = $TourId 
-        AND q.QuSession IS NOT NULL 
-        AND q.QuSession != ''";
-
-if (function_exists('db_query')) {
-    $result = db_query($sql);
-    
-    if ($result !== false) {
-        while ($row = db_fetch_array($result)) {
-            $session = $row['QuSession'];
-            if (!empty($session) && is_numeric($session)) {
-                $existingSessions[] = (int)$session;
-            }
-        }
-        
-        if (function_exists('db_free_result')) {
-            db_free_result($result);
-        }
-    }
+foreach (GetSessions('Q') as $s) {
+    $existingSessions[] = (int)$s->SesOrder;
 }
-
-// Nettoyer et trier les sessions
-$existingSessions = array_unique($existingSessions);
 sort($existingSessions);
-
-// Si aucune session n'est trouvée, utiliser les sessions par défaut
-if (empty($existingSessions)) {
-    $existingSessions = array(1, 2); // Sessions par défaut
-}
 
 // Déterminer la racine relative
 $basePath = '../../../';
@@ -369,7 +341,7 @@ include('Common/Templates/head.php');
 			
             <li class="task-item">
                 <span class="task-icon">🔃</span>
-                <a href="<?php echo $basePath; ?>Participants/LookupTableLoad.php" class="task-link" >Mise à jour de la base de données Archers</a>
+                <a href="<?php echo $basePath; ?>Partecipants/LookupTableLoad.php" class="task-link" >Mise à jour de la base de données Archers</a>
             </li>
 			
             <li class="task-item">
@@ -394,10 +366,22 @@ include('Common/Templates/head.php');
             
             <li class="task-item">
                 <span class="task-icon">🖨️</span>
-                <a href="<?php echo $basePath; ?>Participants/PrnAlphabetical.php?tf=1" class="task-link" >Pour affichage / Liste des Participants par Ordre Alphabétique + Type de Cible</a>
+                <a href="<?php echo $basePath; ?>Partecipants/PrnSession.php?Filled=1" class="task-link" >Plan de cible / Liste des Cibles - Sans cibles vides -</a>
                 <div class="task-actions">
                     <?php foreach ($existingSessions as $session): ?>
-                    <a href="<?php echo $basePath; ?>Participants/PrnAlphabetical.php?Session=<?php echo $session; ?>&tf=1" 
+                    <a href="<?php echo $basePath; ?>Partecipants/PrnSession.php?Session=<?php echo $session; ?>&Filled=1" 
+                       class="btn-small btn-primary" 
+                       >Départ <?php echo $session; ?></a>
+                    <?php endforeach; ?>
+                </div>
+            </li>
+            
+            <li class="task-item">
+                <span class="task-icon">🖨️</span>
+                <a href="<?php echo $basePath; ?>Partecipants/PrnAlphabetical.php?tf=1" class="task-link" >Pour affichage / Liste des Participants par Ordre Alphabétique + Type de Cible</a>
+                <div class="task-actions">
+                    <?php foreach ($existingSessions as $session): ?>
+                    <a href="<?php echo $basePath; ?>Partecipants/PrnAlphabetical.php?Session=<?php echo $session; ?>&tf=1" 
                        class="btn-small btn-primary" 
                        >Départ <?php echo $session; ?></a>
                     <?php endforeach; ?>
@@ -419,7 +403,7 @@ include('Common/Templates/head.php');
         <div class="github-section">
             <p><strong>🔄 MISE À JOUR DE L'ADDON IANSEO (Loloz3)</strong></p>
             <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
-                <strong>Note :</strong> Les fichiers <code>menu.php</code> et <code>Prix.txt</code> existants ne seront pas remplacés.
+                <strong>Note :</strong> Les fichiers <code>menu.php</code>, <code>Prix.txt</code> et <code>addon_source.php</code> existants ne seront pas remplacés.
             </p>
             
             <div style="margin: 15px 0;">
@@ -427,7 +411,7 @@ include('Common/Templates/head.php');
                     🔄 Mettre à jour l'Addon
                 </button>
                 
-                <a href="https://github.com/loloz3/ianseo-addon" 
+                <a href="<?php echo AddonRepoUrl(); ?>" 
                     
                    class="github-button github-button-info"
                    style="text-decoration: none;">
@@ -462,7 +446,7 @@ include('Common/Templates/head.php');
                 <a href="" class="task-link" >Impression des feuilles pour contrôle du matériel</a>
                 <div class="task-actions">
                     <?php foreach ($existingSessions as $session): ?>
-                    <a href="<?php echo $basePath; ?>Participants/PrnSession.php?Session=<?php echo $session; ?>&tf=1" 
+                    <a href="<?php echo $basePath; ?>Partecipants/PrnSession.php?Session=<?php echo $session; ?>&tf=1" 
                        class="btn-small btn-primary" 
                        >Départ <?php echo $session; ?></a>
                     <?php endforeach; ?>
@@ -751,7 +735,7 @@ async function sauvegarderTournamentExport() {
 
 // FONCTION SIMPLIFIÉE POUR GITHUB
 function updateAddonSimple() {
-    if (!confirm('Voulez-vous mettre à jour l\'addon depuis GitHub ?\n\nTous les fichiers seront téléchargés depuis https://github.com/loloz3/ianseo-addon\n\nNote: Les fichiers menu.php et Prix.txt existants ne seront PAS remplacés.')) {
+    if (!confirm('Voulez-vous mettre à jour l\'addon depuis GitHub ?\n\nTous les fichiers seront téléchargés depuis <?php echo AddonRepoUrl(); ?>\n\nNote: Les fichiers menu.php, Prix.txt et addon_source.php existants ne seront PAS remplacés.')) {
         return;
     }
     
