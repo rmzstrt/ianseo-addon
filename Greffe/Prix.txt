@@ -7,24 +7,24 @@
 # POUR LE CLUB ORGANISATEUR (Tarif réduit)
 # ----------------------------------------
 # Jeunes (U11 à U18) - 1 départ : 
-PJA1 = 4;
+PJA1 = 5;
 # Adultes (U21 à S3) - 1 départ : 
-PAA1 = 5;
+PAA1 = 15;
 # Jeunes (U11 à U18) - 2 départs ou plus (par départ supplémentaire) :
-PJA2 = 4; 
+PJA2 = 5; 
 # Adultes (U21 à S3) - 2 départs ou plus (par départ supplémentaire) :
-PAA2 = 5;
+PAA2 = 10;
 
 # POUR TOUS LES AUTRES CLUBS
 # ---------------------------
 # Jeunes (U11 à U18) - 1 départ : 
-OJA1 = 8;
+OJA1 = 5;
 # Adultes (U21 à S3) - 1 départ : 
-OAA1 = 10;
+OAA1 = 15;
 # Jeunes (U11 à U18) - 2 départs ou plus (par départ supplémentaire) :
-OJA2 = 6; 
+OJA2 = 5; 
 # Adultes (U21 à S3) - 2 départs ou plus (par départ supplémentaire) :
-OAA2 = 8;
+OAA2 = 10;
 
 # NOTES
 # -----
