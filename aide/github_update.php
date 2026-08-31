@@ -1,6 +1,14 @@
 <?php
 // github_update.php - Version sans création de fichiers backup
 
+require_once(dirname(dirname(__FILE__)) . '/config.php');
+require_once(dirname(__FILE__) . '/addon_source.php');
+
+// Cette page écrase des fichiers dans la racine web : elle exige une
+// compétition ouverte et le droit d'écriture sur les modules.
+CheckTourSession(true);
+checkFullACL(AclModules, 'modGeneric', AclReadWrite);
+
 // Configuration
 set_time_limit(300);
 ini_set('max_execution_time', 300);
@@ -23,8 +31,8 @@ $isWindows = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN');
 echo "<p class='info'>Système: " . ($isWindows ? 'Windows' : 'Linux') . "</p>";
 
 // Configuration
-$githubRepo = "loloz3/ianseo-addon";
-$branch = "main";
+$githubRepo = ADDON_REPO;   // voir addon_source.php
+$branch = ADDON_BRANCH;
 $currentDir = __DIR__;
 $customDir = dirname($currentDir);
 
@@ -62,7 +70,7 @@ logMsg("Permissions OK", 'success');
 
 // 1. Télécharger le ZIP
 logMsg("Téléchargement depuis GitHub...");
-$zipUrl = "https://github.com/{$githubRepo}/archive/{$branch}.zip";
+$zipUrl = AddonZipUrl();
 
 $zipContent = false;
 
@@ -72,8 +80,8 @@ if (function_exists('curl_init')) {
     curl_setopt($ch, CURLOPT_URL, $zipUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
     curl_setopt($ch, CURLOPT_USERAGENT, 'IANSEO-Updater');
     
@@ -95,8 +103,8 @@ if ($zipContent === false && ini_get('allow_url_fopen')) {
     
     $context = stream_context_create([
         'ssl' => [
-            'verify_peer' => false,
-            'verify_peer_name' => false,
+            'verify_peer' => true,
+            'verify_peer_name' => true,
         ],
         'http' => [
             'timeout' => 60
@@ -168,7 +176,7 @@ $errorCount = 0;
 $skippedCount = 0;
 
 // Fichiers à ne PAS remplacer s'ils existent déjà
-$protectedFiles = ['menu.php', 'Prix.txt'];
+$protectedFiles = ['menu.php', 'Prix.txt', 'addon_source.php'];
 
 $iterator = new RecursiveIteratorIterator(
     new RecursiveDirectoryIterator($sourceDir, RecursiveDirectoryIterator::SKIP_DOTS),
