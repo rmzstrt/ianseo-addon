@@ -13,7 +13,7 @@
  */
 
 // Depot GitHub, au format "compte/depot".
-define('ADDON_REPO', 'loloz3/ianseo-addon');
+define('ADDON_REPO', 'rmzstrt/ianseo-addon');
 
 // Branche a telecharger.
 define('ADDON_BRANCH', 'main');
