@@ -401,8 +401,10 @@ include('Common/Templates/head.php');
         
         <!-- SECTION GITHUB SIMPLE -->
         <div class="github-section">
-            <p><strong>🔄 MISE À JOUR DE L'ADDON IANSEO (Loloz3)</strong></p>
+            <p><strong>🔄 MISE À JOUR DE L'ADDON IANSEO</strong></p>
             <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                Source : <code><?php echo htmlspecialchars(ADDON_REPO); ?></code>
+                (branche <code><?php echo htmlspecialchars(ADDON_BRANCH); ?></code>)<br>
                 <strong>Note :</strong> Les fichiers <code>menu.php</code>, <code>Prix.txt</code> et <code>addon_source.php</code> existants ne seront pas remplacés.
             </p>
             
