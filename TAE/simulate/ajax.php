@@ -34,17 +34,17 @@ function getTournamentTypeForSimulation($TourId) {
         return 'outdoor';
     }
 
-    // Combine ToTypeName and ToType for detection
-    $fullTypeInfo = strtolower(trim($row->ToTypeName) . ' ' . trim($row->ToType ?? ''));
+    // Chercher simplement "Indoor" ou "18" dans ToTypeName
+    $toTypeName = $row->ToTypeName;
 
-    // INDOOR indicators (order matters - more specific first)
-    if (strpos($fullTypeInfo, 'indoor') !== false) {
+    // Case insensitive search
+    if (stripos($toTypeName, 'Indoor') !== false) {
         return 'indoor';
     }
-    if (strpos($fullTypeInfo, '18') !== false && (strpos($fullTypeInfo, 'type') !== false || strpos($fullTypeInfo, 'salle') !== false)) {
+    if (stripos($toTypeName, 'Salle') !== false) {
         return 'indoor';
     }
-    if (strpos($fullTypeInfo, 'salle') !== false) {
+    if (stripos($toTypeName, '18') !== false) {
         return 'indoor';
     }
 
