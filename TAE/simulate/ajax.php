@@ -177,6 +177,9 @@ try {
 
     // ACTION: get_data
     if ($action === 'get_data') {
+        // DEBUG: Log tournament type detection
+        error_log("DEBUG TAE: TourId=$TourId, Type detected: $tournamentType");
+
         $list = array();
         $totalArrows = 0;
         $totalScore = 0;
