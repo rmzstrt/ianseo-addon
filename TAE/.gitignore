@@ -12,6 +12,7 @@ Thumbs.db
 # Logs
 *.log
 logs/
+simulate/debug.log
 
 # Temp
 .tmp/

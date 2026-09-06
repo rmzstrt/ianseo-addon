@@ -4,18 +4,39 @@
  * Gestion des actions AJAX (ajout de flèches, reset, complétion)
  */
 
+// Log every request to a file for debugging (defined FIRST, before anything can fail)
+function taeLog($msg) {
+    $logFile = dirname(__FILE__) . '/debug.log';
+    $timestamp = date('Y-m-d H:i:s');
+    @file_put_contents($logFile, "[$timestamp] $msg\n", FILE_APPEND);
+}
+taeLog("=== NEW REQUEST === action=" . ($_POST['action'] ?? 'NONE') . " | POST=" . json_encode($_POST));
+
+// Catch fatal errors
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error !== NULL && in_array($error['type'], array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR))) {
+        taeLog("FATAL ERROR: " . $error['message'] . " in " . $error['file'] . " line " . $error['line']);
+    }
+});
+
 // Remontée jusqu'à Modules/Custom/config.php (3 dirname depuis TAE/simulate/)
 require_once(dirname(dirname(dirname(__FILE__))) . '/config.php');
+taeLog("config.php loaded OK");
 require_once('Common/Fun_Various.inc.php');
+taeLog("Fun_Various.inc.php loaded OK");
 
 // Session + ACL
 CheckTourSession(true);
+taeLog("CheckTourSession OK");
 checkACL(AclParticipants, AclReadWrite);
+taeLog("checkACL OK");
 
 // En-tête JSON
 header('Content-Type: application/json; charset=utf-8');
 
 $TourId = isset($_POST['TourId']) ? (int)$_POST['TourId'] : $_SESSION['TourId'];
+taeLog("TourId=$TourId");
 
 /**
  * Détecte le type de tournoi (INDOOR = 3 flèches, OUTDOOR = 6 flèches)
@@ -227,6 +248,7 @@ try {
 
     // ACTION: add_arrows
     if ($action === 'add_arrows') {
+        taeLog("Entering add_arrows, " . count($archers) . " archers loaded");
         $numVolleys = isset($_POST['num_volleys']) ? (int)$_POST['num_volleys'] : 1;
         $group = isset($_POST['archer_group']) ? $_POST['archer_group'] : 'all';
         $arrowType = isset($_POST['arrow_type']) ? $_POST['arrow_type'] : 'random';
@@ -321,6 +343,8 @@ try {
 
         $distanceText = ($targetDistance === 'd1') ? 'D1' : (($targetDistance === 'd2') ? 'D2' : 'D1 et D2');
         $arrowText = ($arrowsPerEnd === 3) ? '3 flèches' : '6 flèches';
+
+        taeLog("add_arrows completed: affected=$affected, totalArrowsAdded=$totalArrowsAdded");
 
         echo json_encode(array(
             'success' => true,
@@ -475,9 +499,12 @@ try {
     }
 
     // Action inconnue
+    taeLog("Unknown action: $action");
     echo json_encode(array('success' => false, 'message' => "Action non reconnue: " . htmlspecialchars($action)));
 
 } catch (Exception $e) {
+    taeLog("EXCEPTION CAUGHT: " . $e->getMessage() . " in " . $e->getFile() . " line " . $e->getLine());
     echo json_encode(array('success' => false, 'message' => "Erreur: " . $e->getMessage()));
 }
+taeLog("=== END OF SCRIPT ===");
 ?>
