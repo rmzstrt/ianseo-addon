@@ -322,8 +322,8 @@ try {
 
             // UPDATE
             $updateQuery = "UPDATE Qualifications SET
-                QuD1Arrowstring = '" . StrSafe_DB($a['d1_str']) . "',
-                QuD2Arrowstring = '" . StrSafe_DB($a['d2_str']) . "',
+                QuD1Arrowstring = " . StrSafe_DB($a['d1_str']) . ",
+                QuD2Arrowstring = " . StrSafe_DB($a['d2_str']) . ",
                 QuD1Score = " . (int)$newScoreD1 . ",
                 QuD2Score = " . (int)$newScoreD2 . ",
                 QuD1Hits = " . (int)$statsD1['hits'] . ",
@@ -469,8 +469,8 @@ try {
 
             // UPDATE
             $updateQuery = "UPDATE Qualifications SET
-                QuD1Arrowstring = '" . StrSafe_DB($a['d1_str']) . "',
-                QuD2Arrowstring = '" . StrSafe_DB($a['d2_str']) . "',
+                QuD1Arrowstring = " . StrSafe_DB($a['d1_str']) . ",
+                QuD2Arrowstring = " . StrSafe_DB($a['d2_str']) . ",
                 QuD1Score = " . (int)$newScoreD1 . ",
                 QuD2Score = " . (int)$newScoreD2 . ",
                 QuD1Hits = " . (int)$statsD1['hits'] . ",
