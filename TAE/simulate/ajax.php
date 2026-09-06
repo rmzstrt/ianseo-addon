@@ -21,47 +21,33 @@ $TourId = isset($_POST['TourId']) ? (int)$_POST['TourId'] : $_SESSION['TourId'];
  * Détecte le type de tournoi (INDOOR = 3 flèches, OUTDOOR = 6 flèches)
  */
 function getTournamentTypeForSimulation($TourId) {
-    // Utiliser (int) au lieu de StrSafe_DB pour les entiers
     $TourId = (int)$TourId;
     $query = "SELECT ToTypeName, ToType FROM Tournament WHERE ToId = $TourId";
     $rs = safe_r_sql($query);
 
     if (!$rs) {
-        error_log("DEBUG TAE: Query failed for TourId=$TourId");
         return 'outdoor';
     }
 
     $row = safe_fetch($rs);
     if (!$row) {
-        error_log("DEBUG TAE: No tournament found for TourId=$TourId");
         return 'outdoor';
     }
 
-    error_log("DEBUG TAE: ToTypeName='" . $row->ToTypeName . "', ToType='" . $row->ToType . "'");
+    // Combine ToTypeName and ToType for detection
+    $fullTypeInfo = strtolower(trim($row->ToTypeName) . ' ' . trim($row->ToType ?? ''));
 
-    // Chercher les indicateurs INDOOR (insensible à la casse)
-    $toTypeName = strtolower(trim($row->ToTypeName));
-    $indoorKeywords = array('indoor', '18m', 'salle', 'type_indoor', 'type indoor');
-
-    foreach ($indoorKeywords as $keyword) {
-        if (stripos($toTypeName, $keyword) !== false) {
-            error_log("DEBUG TAE: Detected INDOOR (matched '$keyword')");
-            return 'indoor';
-        }
+    // INDOOR indicators (order matters - more specific first)
+    if (strpos($fullTypeInfo, 'indoor') !== false) {
+        return 'indoor';
+    }
+    if (strpos($fullTypeInfo, '18') !== false && (strpos($fullTypeInfo, 'type') !== false || strpos($fullTypeInfo, 'salle') !== false)) {
+        return 'indoor';
+    }
+    if (strpos($fullTypeInfo, 'salle') !== false) {
+        return 'indoor';
     }
 
-    // Vérifier aussi ToType si c'est un entier
-    if (isset($row->ToType)) {
-        $toType = strtolower(trim($row->ToType));
-        foreach ($indoorKeywords as $keyword) {
-            if (stripos($toType, $keyword) !== false) {
-                error_log("DEBUG TAE: Detected INDOOR via ToType (matched '$keyword')");
-                return 'indoor';
-            }
-        }
-    }
-
-    error_log("DEBUG TAE: No match found, defaulting to OUTDOOR");
     return 'outdoor';
 }
 
