@@ -226,6 +226,11 @@ try {
             );
         }
 
+        // DEBUG: Fetch tournament info for debug output
+        $debugQuery = "SELECT ToTypeName, ToType FROM Tournament WHERE ToId = $TourId";
+        $debugRs = safe_r_sql($debugQuery);
+        $debugRow = safe_fetch($debugRs);
+
         echo json_encode(array(
             'success' => true,
             'archers' => $list,
@@ -237,6 +242,11 @@ try {
                 'total_archers' => count($list),
                 'total_arrows' => $totalArrows,
                 'total_score' => $totalScore
+            ),
+            'debug' => array(
+                'ToTypeName' => $debugRow->ToTypeName,
+                'ToType' => $debugRow->ToType,
+                'detected' => $tournamentType
             )
         ));
         exit;
