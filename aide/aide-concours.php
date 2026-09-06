@@ -558,7 +558,7 @@ include('Common/Templates/head.php');
 			
 			<li class="task-item">
 				<span class="task-icon">🧪</span>
-				<a href="<?php echo $basePath; ?>Modules/Custom/test/ScoreSimulate.php" class="task-link" >Simulateur de scores (tests)</a>
+				<a href="<?php echo $basePath; ?>Modules/Custom/TAE/simulate/" class="task-link" >Simulateur de scores (tests)</a>
 			</li>
 
 			
