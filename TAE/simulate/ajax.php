@@ -33,9 +33,18 @@ function getTournamentTypeForSimulation($TourId) {
         return 'outdoor';
     }
 
-    // Chercher "indoor" dans le nom du type (insensible à la casse)
+    // Chercher les indicateurs INDOOR (insensible à la casse)
     $toTypeName = strtolower($row->ToTypeName);
-    if (stripos($toTypeName, 'indoor') !== false || $row->ToTypeName == '1') {
+    $indoorKeywords = array('indoor', '18m', 'salle', 'type_indoor');
+
+    foreach ($indoorKeywords as $keyword) {
+        if (stripos($toTypeName, $keyword) !== false) {
+            return 'indoor';
+        }
+    }
+
+    // Vérifier aussi l'ID du type
+    if ($row->ToTypeName == '1') {
         return 'indoor';
     }
 
