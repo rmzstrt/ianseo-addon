@@ -166,10 +166,6 @@ include('Common/Templates/head.php');
                 <label>Configuration :</label>
                 <span id="tournament-config-display" style="font-size: 12px; color: #666;">Chargement...</span>
             </div>
-            <div class="config-row" id="debug-info" style="display: none; background: #ffe6e6; padding: 10px; border-radius: 4px; font-size: 11px;">
-                <div><strong>DEBUG:</strong></div>
-                <div id="debug-content" style="font-family: monospace; margin-top: 5px;"></div>
-            </div>
         </div>
 
         <div>
@@ -281,16 +277,6 @@ include('Common/Templates/head.php');
         $.post(ajaxUrl, { action: 'get_data', TourId: tourId }, function(r) {
             if (r.success) {
                 displayTable(r.archers);
-
-                // DEBUG: Show debug info if present
-                if (r.debug) {
-                    $('#debug-info').show();
-                    $('#debug-content').html(
-                        'ToTypeName: ' + r.debug.ToTypeName + '<br>' +
-                        'ToType: ' + r.debug.ToType + '<br>' +
-                        'Detected: ' + r.debug.detected
-                    );
-                }
 
                 // Afficher le type de tournoi si disponible
                 if (r.tournamentType) {

@@ -132,7 +132,7 @@ try {
     $action = isset($_POST['action']) ? $_POST['action'] : '';
 
     // Déterminer le type de tournoi
-    $tournamentType = getTournamentType($TourId);
+    $tournamentType = getTournamentTypeForSimulation($TourId);
     $arrowsPerEnd = ($tournamentType === 'indoor') ? 3 : 6;
     $maxArrowsPerDistance = ($tournamentType === 'indoor') ? 30 : 36;
     $totalArrowsMax = $maxArrowsPerDistance * 2;
@@ -177,9 +177,6 @@ try {
 
     // ACTION: get_data
     if ($action === 'get_data') {
-        // DEBUG: Log tournament type detection
-        error_log("DEBUG TAE: TourId=$TourId, Type detected: $tournamentType");
-
         $list = array();
         $totalArrows = 0;
         $totalScore = 0;
@@ -212,19 +209,6 @@ try {
             );
         }
 
-        // DEBUG: Fetch tournament info for debug output
-        $debugQuery = "SELECT ToTypeName, ToType FROM Tournament WHERE ToId = $TourId";
-        $debugRs = safe_r_sql($debugQuery);
-        $debugRow = safe_fetch($debugRs);
-
-        // Re-check tournament type directly for debug
-        $debugTourneyType = 'outdoor';
-        if (stripos($debugRow->ToTypeName, 'Indoor') !== false ||
-            stripos($debugRow->ToTypeName, 'Salle') !== false ||
-            stripos($debugRow->ToTypeName, '18') !== false) {
-            $debugTourneyType = 'indoor';
-        }
-
         echo json_encode(array(
             'success' => true,
             'archers' => $list,
@@ -236,11 +220,6 @@ try {
                 'total_archers' => count($list),
                 'total_arrows' => $totalArrows,
                 'total_score' => $totalScore
-            ),
-            'debug' => array(
-                'ToTypeName' => $debugRow->ToTypeName,
-                'ToType' => $debugRow->ToType,
-                'detected' => $debugTourneyType  // Use recalculated value
             )
         ));
         exit;
