@@ -217,6 +217,14 @@ try {
         $debugRs = safe_r_sql($debugQuery);
         $debugRow = safe_fetch($debugRs);
 
+        // Re-check tournament type directly for debug
+        $debugTourneyType = 'outdoor';
+        if (stripos($debugRow->ToTypeName, 'Indoor') !== false ||
+            stripos($debugRow->ToTypeName, 'Salle') !== false ||
+            stripos($debugRow->ToTypeName, '18') !== false) {
+            $debugTourneyType = 'indoor';
+        }
+
         echo json_encode(array(
             'success' => true,
             'archers' => $list,
@@ -232,7 +240,7 @@ try {
             'debug' => array(
                 'ToTypeName' => $debugRow->ToTypeName,
                 'ToType' => $debugRow->ToType,
-                'detected' => $tournamentType
+                'detected' => $debugTourneyType  // Use recalculated value
             )
         ));
         exit;
