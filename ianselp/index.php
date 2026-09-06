@@ -52,6 +52,12 @@ $cfg    = ianselp_GetConfig($TourId);
 $Events = ianselp_EventList($TourId);
 $Stale  = ianselp_StaleCount($TourId);
 
+// DEBUG : Afficher les événements retournés
+error_log("DEBUG ianselp - TourId=$TourId, Events count=" . count($Events));
+foreach ($Events as $code => $ev) {
+    error_log("  Event: $code - {$ev['name']} (nb={$ev['nb']})");
+}
+
 $Tour = safe_fetch(safe_r_sql(
     "SELECT ToName, ToNumDist FROM Tournament WHERE ToId=" . StrSafe_DB($TourId)
 ));
