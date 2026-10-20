@@ -343,7 +343,12 @@ include('Common/Templates/head.php');
                 <span class="task-icon">🔃</span>
                 <a href="<?php echo $basePath; ?>Partecipants/LookupTableLoad.php" class="task-link" >Mise à jour de la base de données Archers</a>
             </li>
-			
+
+            <li class="task-item">
+                <span class="task-icon">📊</span>
+                <a href="<?php echo $basePath; ?>Partecipants/ListLoad.php" class="task-link" >Importation des archers via le tableur</a>
+            </li>
+
             <li class="task-item">
                 <span class="task-icon">👥</span>
                 <a href="<?php echo $basePath; ?>Modules/Custom/Perso/AddArcher.php?id=0" class="task-link" >Ajouter des archers / participants</a>
