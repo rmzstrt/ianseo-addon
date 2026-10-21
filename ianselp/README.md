@@ -23,8 +23,10 @@ Testé sur IANSEO 2026-03-01 (rev 319), PHP 8.2, MariaDB.
 | `menu.php` | Entrée « Scores en direct » dans le menu **Sorties** |
 | `index.php` | Page de pilotage : réglages + lancement de l'affichage |
 | `live.php` | Écran plein écran (aucun template IANSEO, aucun menu) |
-| `data.php` | Source JSON interrogée en boucle par `live.php` |
+| `data.php` | Source JSON interrogée en boucle par `live.php` et `mobile.php` (cache de 4 s) |
+| `mobile.php` | Page mobile des spectateurs : recherche d'un archer, suivi de son score |
 | `Lib/Fun_ianselp.php` | Configuration, liste des épreuves, lecture du classement |
+| `Lib/Fun_ianselp_web.php` | Adresse publique, QR code (SVG), cache de `data.php` |
 
 ## Fonctionnement
 
@@ -63,7 +65,36 @@ simulation) donnent donc un score juste avec un **rang à 0**. Dans ce cas :
 
 Menu **Sorties → Scores en direct**. Ils sont stockés dans `ModulesParameters`
 sous le module `ianselp`, par tournoi : `events`, `scrollsec`, `refresh`, `rows`,
-`dist`, `title`. Aucune table n'est créée.
+`dist`, `title`, `baseurl`, `showqr`. Aucune table n'est créée.
+
+## Page mobile pour les spectateurs
+
+Un QR code s'affiche en bas de l'écran (touche **Q** : en grand). Il ouvre
+`mobile.php?tour=<ToId>` sur le téléphone : on tape un nom d'archer ou de club
+(sans accent ni majuscule, plusieurs mots dans n'importe quel ordre), et la
+page affiche le rang, le score, la cible et l'épreuve. L'étoile garde l'archer
+dans le téléphone (`localStorage`, par concours) : il remonte en tête à la
+visite suivante. Les scores se rafraîchissent seuls toutes les 10 s au plus et
+la ligne d'un archer clignote quand son score change.
+
+- **Adresse.** Un téléphone ne peut pas atteindre `localhost`. Le réglage
+  *Adresse pour les spectateurs* (`baseurl`, ex. `http://192.168.1.20`) donne
+  l'adresse à encoder ; vide, le module prend celle de la requête, ou, si
+  l'écran est ouvert via `localhost`, l'adresse réseau de la machine
+  (`gethostbyname(gethostname())`). Elle peut désigner une mauvaise carte réseau
+  (VPN, WSL) : vérifier l'adresse affichée dans la page de pilotage. Sans
+  adresse utilisable, aucun QR code n'est affiché et la page de pilotage le
+  signale.
+- **Réseau.** Les téléphones doivent être sur le même Wi-Fi que le poste, ou le
+  serveur doit être joignable depuis Internet. Sous Windows, le pare-feu doit
+  autoriser Apache.
+- **Charge.** `data.php` met sa réponse en cache 4 secondes dans le dossier
+  temporaire (`sys_get_temp_dir()`) : cent téléphones déclenchent un seul calcul
+  du classement. Le cache est vidé à l'enregistrement des réglages et au
+  recalcul.
+- **Qui apparaît.** Les archers du classement officiel (`EnIndFEvent=1`), dès
+  leur première flèche. Les tirs hors classement (autres départs) n'y figurent
+  pas.
 
 ## Affichage sur un autre poste
 
@@ -75,7 +106,7 @@ Ajouter `&demo=1` pour un jeu de données fictives (réglage du vidéoprojecteur
 avant le concours, sans toucher à la base).
 
 Raccourcis clavier : **F** plein écran · **Espace** pause · **← →** épreuve
-précédente / suivante.
+précédente / suivante · **Q** QR code en grand.
 
 ## Notes
 

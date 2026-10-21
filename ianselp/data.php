@@ -1,11 +1,15 @@
 <?php
 /**
  * ianselp — Affichage des scores en direct
- * Source de données JSON interrogée en boucle par live.php.
+ * Source de données JSON interrogée en boucle par live.php et mobile.php.
  *
  * Lecture seule, résultats publics : la page accepte ?tour=<ToId> pour pouvoir
- * être affichée sur un poste sans session IANSEO (vidéoprojecteur). Aucune
- * donnée personnelle au-delà de ce qui figure déjà sur les résultats affichés.
+ * être affichée sur un poste sans session IANSEO (vidéoprojecteur, téléphone).
+ * Aucune donnée personnelle au-delà de ce qui figure déjà sur les résultats
+ * affichés.
+ *
+ * La réponse est mise en cache quelques secondes (voir Fun_ianselp_web.php) :
+ * tous les écrans et téléphones partagent ainsi un seul calcul du classement.
  *
  * ?demo=1 renvoie un jeu de données factice, sans aucun accès aux scores.
  */
@@ -13,6 +17,7 @@
 require_once(dirname(dirname(__FILE__)) . '/config.php');
 require_once('Common/Fun_Various.inc.php');
 require_once(dirname(__FILE__) . '/Lib/Fun_ianselp.php');
+require_once(dirname(__FILE__) . '/Lib/Fun_ianselp_web.php');
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -24,17 +29,26 @@ if (!$TourId) {
     exit;
 }
 
+$demo = !empty($_REQUEST['demo']);
+
+if (!$demo) {
+    $cached = ianselp_CacheGet($TourId);
+    if ($cached !== null) {
+        echo $cached;
+        exit;
+    }
+}
+
 $cfg  = ianselp_GetConfig($TourId);
 $Tour = safe_fetch(safe_r_sql(
     "SELECT ToName, ToNameShort, ToGolds, ToXNine FROM Tournament WHERE ToId=" . StrSafe_DB($TourId)
 ));
 
-$demo = !empty($_REQUEST['demo']);
 $rank = $demo
     ? ianselp_DemoRanking()
     : ianselp_Ranking($TourId, $cfg['events'], $cfg['dist']);
 
-echo json_encode(array(
+$json = json_encode(array(
     'error'      => 0,
     'demo'       => $demo ? 1 : 0,
     'serverTime' => time(),
@@ -48,3 +62,8 @@ echo json_encode(array(
     'lastUpdate' => $rank['lastUpdate'],
     'sections'   => $rank['sections'],
 ), JSON_UNESCAPED_UNICODE);
+
+if (!$demo && is_string($json)) {
+    ianselp_CachePut($TourId, $json);
+}
+echo $json;

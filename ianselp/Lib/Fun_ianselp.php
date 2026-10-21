@@ -18,6 +18,8 @@ function ianselp_Defaults()
         'rows'      => 12,      // lignes visibles à l'écran (pilote la taille du texte)
         'dist'      => 0,       // 0 = total, sinon n° de distance
         'title'     => '',      // titre libre ; vide = nom du concours
+        'baseurl'   => '',      // adresse donnée aux spectateurs ; vide = détectée
+        'showqr'    => 1,       // 1 = QR code de la page mobile sur l'écran
     );
 }
 
@@ -59,6 +61,8 @@ function ianselp_GetConfig($TourId)
     $cfg['rows']      = max(4, min(40,  (int)$cfg['rows']));
     $cfg['dist']      = max(0, min(8,   (int)$cfg['dist']));
     $cfg['title']     = (string)$cfg['title'];
+    $cfg['baseurl']   = trim((string)$cfg['baseurl']);
+    $cfg['showqr']    = empty($cfg['showqr']) ? 0 : 1;
 
     return $cfg;
 }
@@ -143,6 +147,7 @@ function ianselp_Ranking($TourId, array $events, $dist = 0)
                 // IANSEO laisse le rang à 0 tant que le classement n'a pas été
                 // recalculé : mieux vaut ne rien afficher qu'un « 0 » faux.
                 'rank'    => ((string)$item['rank'] === '0') ? '' : $item['rank'],
+                'id'      => $item['id'],
                 'athlete' => $item['athlete'],
                 'club'    => $item['countryName'],
                 'target'  => $item['target'],
@@ -193,6 +198,7 @@ function ianselp_DemoRanking()
             $score -= rand(3, 14);
             $items[] = array(
                 'rank'    => $i + 1,
+                'id'      => $code . '-' . $i,
                 'athlete' => $noms[($i + strlen($code)) % count($noms)],
                 'club'    => $clubs[($i + strlen($descr)) % count($clubs)],
                 'target'  => (1 + $i) . chr(65 + ($i % 4)),

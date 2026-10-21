@@ -8,6 +8,7 @@
 require_once(dirname(dirname(__FILE__)) . '/config.php');
 require_once('Common/Fun_Various.inc.php');
 require_once(dirname(__FILE__) . '/Lib/Fun_ianselp.php');
+require_once(dirname(__FILE__) . '/Lib/Fun_ianselp_web.php');
 
 CheckTourSession(true);
 checkACL(AclOutput, AclReadOnly);
@@ -22,6 +23,7 @@ $Recalc    = null;   // null = pas demandé, true/false = résultat
 if (!empty($_POST['recalc'])) {
     checkACL(AclOutput, AclReadWrite);
     $Recalc = ianselp_Recalculate($TourId);
+    ianselp_CacheClear($TourId);
 }
 
 // ---------------------------------------------------------------------------
@@ -44,13 +46,22 @@ if (!empty($_POST['save'])) {
         'rows'      => isset($_POST['rows'])      ? (int)$_POST['rows']      : 12,
         'dist'      => isset($_POST['dist'])      ? (int)$_POST['dist']      : 0,
         'title'     => isset($_POST['title'])     ? trim($_POST['title'])    : '',
+        'baseurl'   => isset($_POST['baseurl'])   ? trim($_POST['baseurl'])  : '',
+        'showqr'    => !empty($_POST['showqr'])   ? 1 : 0,
     ));
+    ianselp_CacheClear($TourId);
     $Saved = true;
 }
 
 $cfg    = ianselp_GetConfig($TourId);
 $Events = ianselp_EventList($TourId);
 $Stale  = ianselp_StaleCount($TourId);
+
+// Page mobile des spectateurs : adresse effective, adresse détectée (si le
+// champ est vide) et QR code correspondant.
+$MobileUrl = ianselp_MobileUrl($TourId, $cfg);
+$QrSvg     = $MobileUrl !== '' ? ianselp_QrSvg($MobileUrl) : '';
+$AutoBase  = ianselp_BaseUrl(array_merge($cfg, array('baseurl' => '')));
 
 // DEBUG : Afficher les événements retournés
 error_log("DEBUG ianselp - TourId=$TourId, Events count=" . count($Events));
@@ -188,6 +199,65 @@ include('Common/Templates/head.php');
         <td>Rafraîchissement des scores (secondes)</td>
         <td><input type="number" name="refresh" min="3" max="300" value="<?php echo (int)$cfg['refresh']; ?>"></td>
     </tr>
+
+    <tr>
+        <td>Adresse pour les spectateurs</td>
+        <td>
+            <input type="text" name="baseurl" size="40" maxlength="120"
+                   value="<?php echo htmlspecialchars($cfg['baseurl']); ?>"
+                   placeholder="<?php echo htmlspecialchars($AutoBase !== '' ? $AutoBase : 'http://192.168.1.20'); ?>">
+            <span style="color:#777;">
+                adresse que les téléphones doivent atteindre, sans chemin
+                (vide = <?php echo $AutoBase !== '' ? '<b>' . htmlspecialchars($AutoBase) . '</b> détectée' : 'détection automatique'; ?>)
+            </span>
+<?php if ($MobileUrl === '') { ?>
+            <div style="margin-top:.4em;padding:.4em .6em;background:#fcf8e3;border-left:4px solid #f0ad4e;">
+                <i class="fa fa-exclamation-triangle"></i>
+                Aucune adresse utilisable : <code>localhost</code> ne fonctionne que sur cet ordinateur.
+                Saisissez l'adresse réseau du serveur (par exemple <code>http://192.168.1.20</code>)
+                pour que le QR code s'affiche.
+            </div>
+<?php } else { ?>
+            <div style="margin-top:.4em;color:#777;">
+                Les téléphones doivent être sur le même réseau Wi-Fi que cet ordinateur (ou le serveur
+                doit être accessible depuis Internet), et le pare-feu Windows doit autoriser Apache.
+            </div>
+<?php } ?>
+        </td>
+    </tr>
+
+    <tr class="Modifica">
+        <td>QR code sur l'écran d'affichage</td>
+        <td>
+            <label>
+                <input type="checkbox" name="showqr" value="1"<?php echo $cfg['showqr'] ? ' checked' : ''; ?>>
+                afficher le QR code de la page mobile en bas de l'écran
+            </label>
+            <span style="color:#777;">(touche <b>Q</b> sur l'écran : QR code en grand)</span>
+        </td>
+    </tr>
+
+<?php if ($MobileUrl !== '') { ?>
+    <tr>
+        <td>Page mobile des spectateurs</td>
+        <td>
+            <div style="display:flex;align-items:center;gap:1.5em;">
+<?php if ($QrSvg !== '') { ?>
+                <div style="width:140px;height:140px;flex:none;border:1px solid #ccc;"><?php echo $QrSvg; ?></div>
+<?php } ?>
+                <div>
+                    <a class="Link" href="<?php echo htmlspecialchars($MobileUrl); ?>" target="_blank" rel="noopener">
+                        <i class="fa fa-mobile"></i> <b>Ouvrir la page mobile</b>
+                    </a><br>
+                    <a class="Link" href="<?php echo htmlspecialchars($MobileUrl); ?>&amp;demo=1" target="_blank" rel="noopener">
+                        <i class="fa fa-flask"></i> Aperçu avec des données fictives
+                    </a><br>
+                    <code><?php echo htmlspecialchars($MobileUrl); ?></code>
+                </div>
+            </div>
+        </td>
+    </tr>
+<?php } ?>
 </table>
 
 <br>

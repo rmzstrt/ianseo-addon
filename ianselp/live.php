@@ -30,6 +30,16 @@ if (!$TourId) {
 $demo    = !empty($_REQUEST['demo']) ? 1 : 0;
 $dataUrl = $CFG->ROOT_DIR . 'Modules/Custom/' . basename(dirname(__FILE__))
          . '/data.php?tour=' . $TourId . ($demo ? '&demo=1' : '');
+
+// QR code de la page mobile, affiché en pied d'écran. Vide si l'adresse du
+// serveur n'est pas joignable depuis un téléphone (voir la page de pilotage).
+require_once(dirname(__FILE__) . '/Lib/Fun_ianselp_web.php');
+$cfg       = ianselp_GetConfig($TourId);
+$mobileUrl = $cfg['showqr'] ? ianselp_MobileUrl($TourId, $cfg) : '';
+if ($mobileUrl !== '' && $demo) {
+    $mobileUrl .= '&demo=1';
+}
+$qrSvg = $mobileUrl !== '' ? ianselp_QrSvg($mobileUrl) : '';
 ?>
 <!doctype html>
 <html lang="fr">
@@ -133,6 +143,22 @@ footer {
 
 .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
          font-size: 4vh; color: var(--muted); text-align: center; }
+
+/* QR code de la page mobile (pied d'écran) et version plein écran (touche Q). */
+footer .qr { display: flex; align-items: center; gap: 1.2vw; flex: none; }
+footer .qr-text { text-align: right; line-height: 1.25; }
+footer .qr-text b { display: block; font-size: 2.8vh; color: var(--accent); }
+footer .qr svg { display: block; flex: none; width: 15vh; height: 15vh; border-radius: .8vh; }
+
+#qrBig {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh;
+    background: rgba(11, 18, 32, .97); text-align: center; padding: 0 4vw;
+}
+#qrBig[hidden] { display: none; }
+#qrBig h1 { font-size: 6vh; color: var(--accent); }
+#qrBig svg { display: block; width: min(60vh, 80vw); height: min(60vh, 80vw); border-radius: 1.5vh; }
+#qrBig p { font-size: 3vh; color: var(--muted); word-break: break-all; }
 </style>
 </head>
 <body>
@@ -160,8 +186,22 @@ footer {
 
 <footer>
     <span id="summary">&nbsp;</span>
-    <span>Espace : pause &middot; &larr; &rarr; : épreuve &middot; F : plein écran</span>
+    <span>Espace : pause &middot; &larr; &rarr; : épreuve &middot; F : plein écran<?php echo $qrSvg !== '' ? ' &middot; Q : QR code en grand' : ''; ?></span>
+<?php if ($qrSvg !== '') { ?>
+    <span class="qr">
+        <span class="qr-text"><b>Suivez votre archer</b>Scannez avec votre téléphone</span>
+        <?php echo $qrSvg; ?>
+    </span>
+<?php } ?>
 </footer>
+
+<?php if ($qrSvg !== '') { ?>
+<div id="qrBig" hidden>
+    <h1>Suivez votre archer en direct</h1>
+    <?php echo $qrSvg; ?>
+    <p>Scannez avec votre téléphone, ou tapez&nbsp;: <?php echo htmlspecialchars($mobileUrl, ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<?php } ?>
 
 <script>
 (function () {
@@ -182,6 +222,7 @@ footer {
     var $main     = document.getElementById('main');
     var $scroller = document.getElementById('scroller');
     var $event    = document.getElementById('event');
+    var $qrBig    = document.getElementById('qrBig');   // absent si aucun QR code
 
     function pad(n) { return (n < 10 ? '0' : '') + n; }
 
@@ -379,6 +420,10 @@ footer {
             jump(1);
         } else if (e.key === 'ArrowLeft') {
             jump(-1);
+        } else if ($qrBig && (e.key === 'q' || e.key === 'Q')) {
+            $qrBig.hidden = !$qrBig.hidden;
+        } else if ($qrBig && e.key === 'Escape') {
+            $qrBig.hidden = true;
         } else if (e.key === 'f' || e.key === 'F') {
             if (document.fullscreenElement) { document.exitFullscreen(); }
             else { document.documentElement.requestFullscreen(); }
