@@ -130,7 +130,9 @@ body {
 .who .club { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .chip { font-size: 12px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
-.chip.tgt { color: var(--accent); border-color: var(--accent); }
+.chip.tgt, .chip.live { color: var(--accent); border-color: var(--accent); }
+.rk.virt { font-size: 20px; font-style: italic; color: var(--muted); padding-top: 5px; }
+.cmp { margin-top: 8px; font-size: 13px; line-height: 1.35; }
 
 .side { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
 .score { font-size: 30px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
@@ -182,6 +184,7 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
     var refresh  = 15;
     var loaded   = false;
     var failed   = false;
+    var multi    = false;                    // plusieurs départs : on précise « Départ 2 »
     var lastOk   = 0;
     var query    = '';
     var fav      = loadFav();                // clé -> nom
@@ -230,28 +233,87 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
                     gold:    it.gold,
                     xnine:   it.xnine,
                     hits:    it.hits,
+                    session: it.session,
+                    live:    null,
                     hay:     norm(it.athlete + ' ' + it.club)
+                });
+            });
+            // Archers en cours et tirs hors classement (voir Lib/Fun_ianselp_departs.php).
+            (sec.live || []).forEach(function (l) {
+                out.push({
+                    key:     String(l.id),
+                    descr:   sec.descr,
+                    rank:    '',
+                    athlete: l.athlete,
+                    club:    l.club,
+                    target:  l.target,
+                    score:   l.score,
+                    gold:    l.gold,
+                    xnine:   l.xnine,
+                    hits:    '',
+                    session: l.session,
+                    live:    l,
+                    hay:     norm(l.athlete + ' ' + l.club)
                 });
             });
         });
         return out;
     }
 
+    function ordinal(n) { return n === 1 ? '1er' : n + 'e'; }
+    function signed(n)  { return n > 0 ? '+' + n : (n < 0 ? '−' + Math.abs(n) : '='); }
+    function plural(n, word) { return n + ' ' + word + (n > 1 ? 's' : ''); }
+
+    // Où en est un archer en cours, comparé aux autres à la même volée.
+    function cmpText(l) {
+        if (!l.official) {
+            return (l.own !== null && l.own !== undefined)
+                ? 'Départ ' + l.ownSession + ' à la même volée : ' + l.own + ' pts (' + signed(l.score - l.own) + ')'
+                : 'Tir hors classement';
+        }
+        if (l.end > 0 && l.vtotal > 1) {
+            var at = 'À la volée ' + l.end + ' : ';
+            return l.vrank === 1
+                ? at + '1er' + (l.score > l.best ? ', ' + signed(l.score - l.best) + ' sur le suivant' : ' ex æquo')
+                : at + ordinal(l.vrank) + ' sur ' + l.vtotal + ' · 1er : ' + l.best + ' pts (' + signed(l.score - l.best) + ')';
+        }
+        return l.end > 0 ? 'Aucun autre archer à comparer à cette volée.' : 'Départ en cours.';
+    }
+
     function cardHtml(a) {
+        var l = a.live;
         var r = parseInt(a.rank, 10);
         var cls = 'card' + (r === 1 ? ' p1' : r === 2 ? ' p2' : r === 3 ? ' p3' : '') + (flashKeys[a.key] ? ' flash' : '');
         var isNum = /^\d+$/.test(String(a.score));
-        var det = isNum
-            ? esc(a.gold) + ' &times; ' + esc(labels.gold) + ' &middot; ' + esc(a.xnine) + ' &times; ' + esc(labels.xnine)
-              + '<br>' + esc(a.hits) + ' flèche' + (parseInt(a.hits, 10) > 1 ? 's' : '')
-            : '';
+        var det = '';
+        if (isNum) {
+            det = esc(a.gold) + ' &times; ' + esc(labels.gold) + ' &middot; ' + esc(a.xnine) + ' &times; ' + esc(labels.xnine) + '<br>';
+            if (!l) { det += plural(parseInt(a.hits, 10) || 0, 'flèche'); }
+            else if (l.state === 'done') { det += 'terminé'; }
+            else if (l.end > 0) { det += 'après ' + plural(l.end, 'volée'); }
+        }
+
+        // Rang : le classement officiel, ou pour un archer en cours le rang qu'il
+        // aurait à sa volée (en italique, pour ne pas le confondre).
+        var rk = a.rank === '' ? '&ndash;' : esc(a.rank);
+        var rkCls = a.rank === '' ? ' none' : '';
+        if (l && l.official && l.end > 0 && l.vtotal > 1) { rk = ordinal(l.vrank); rkCls = ' virt'; }
+
+        var chips = '<span class="chip">' + esc(a.descr) + '</span>';
+        if (multi && a.session) { chips += '<span class="chip">Départ ' + esc(a.session) + '</span>'; }
+        if (a.target) { chips += '<span class="chip tgt">Cible ' + esc(a.target) + '</span>'; }
+        if (l) {
+            chips += l.state === 'progress' ? '<span class="chip live">En cours</span>' : '<span class="chip">Terminé</span>';
+            if (!l.official) { chips += '<span class="chip live">Hors classement</span>'; }
+        }
+
         var on = !!fav[a.key];
         return '<article class="' + cls + '">'
-             +   '<div class="rk' + (a.rank === '' ? ' none' : '') + '">' + (a.rank === '' ? '&ndash;' : esc(a.rank)) + '</div>'
+             +   '<div class="rk' + rkCls + '">' + rk + '</div>'
              +   '<div class="who"><h3>' + esc(a.athlete) + '</h3>'
              +     '<div class="club">' + esc(a.club) + '</div>'
-             +     '<div class="chips"><span class="chip">' + esc(a.descr) + '</span>'
-             +       (a.target ? '<span class="chip tgt">Cible ' + esc(a.target) + '</span>' : '') + '</div></div>'
+             +     '<div class="chips">' + chips + '</div>'
+             +     (l ? '<div class="cmp">' + esc(cmpText(l)) + '</div>' : '') + '</div>'
              +   '<div class="side"><div><div class="score">' + esc(a.score) + '</div><div class="det">' + det + '</div></div>'
              +     starHtml(a.key, a.athlete, on) + '</div>'
              + '</article>';
@@ -355,6 +417,7 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
                 document.getElementById('foot').textContent =
                     'Scores provisoires, actualisés toutes les ' + Math.max(refresh, MIN_REFRESH) + ' secondes. Un archer apparaît dès sa première flèche.';
 
+                multi = !!json.multi;
                 all = flatten(json.sections || []);
                 all.forEach(function (a) {
                     if (prevScore[a.key] !== undefined && prevScore[a.key] !== String(a.score)) { flashKeys[a.key] = true; }

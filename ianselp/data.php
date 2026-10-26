@@ -60,6 +60,7 @@ $json = json_encode(array(
     'refresh'    => $cfg['refresh'],
     'rows'       => $cfg['rows'],
     'lastUpdate' => $rank['lastUpdate'],
+    'multi'      => $rank['multi'],
     'sections'   => $rank['sections'],
 ), JSON_UNESCAPED_UNICODE);
 

@@ -128,7 +128,7 @@ function ianselp_Ranking($TourId, array $events, $dist = 0)
 
     $rank = Obj_RankFactory::create('Abs', $opts);
     if (!$rank) {
-        return array('lastUpdate' => 0, 'sections' => array());
+        return array('lastUpdate' => 0, 'multi' => false, 'sections' => array());
     }
     $rank->read();
     $data = $rank->getData();
@@ -148,6 +148,7 @@ function ianselp_Ranking($TourId, array $events, $dist = 0)
                 // recalculé : mieux vaut ne rien afficher qu'un « 0 » faux.
                 'rank'    => ((string)$item['rank'] === '0') ? '' : $item['rank'],
                 'id'      => $item['id'],
+                'session' => (int)$item['session'],
                 'athlete' => $item['athlete'],
                 'club'    => $item['countryName'],
                 'target'  => $item['target'],
@@ -171,7 +172,17 @@ function ianselp_Ranking($TourId, array $events, $dist = 0)
     $lastUpdate = isset($data['meta']['lastUpdate']) ? @strtotime($data['meta']['lastUpdate']) : 0;
     if (!$lastUpdate || $lastUpdate < 0) { $lastUpdate = 0; }
 
-    return array('lastUpdate' => (int)$lastUpdate, 'sections' => $sections);
+    // Plusieurs départs : on sépare les archers terminés des archers en cours
+    // (voir Fun_ianselp_departs.php). Sans objet pour le classement d'une seule distance.
+    $multi = false;
+    if ((int)$dist === 0 && $sections) {
+        require_once(dirname(__FILE__) . '/Fun_ianselp_departs.php');
+        $split    = ianselp_SplitStages($TourId, $sections);
+        $sections = $split['sections'];
+        $multi    = $split['multi'];
+    }
+
+    return array('lastUpdate' => (int)$lastUpdate, 'multi' => $multi, 'sections' => $sections);
 }
 
 /**
@@ -199,6 +210,7 @@ function ianselp_DemoRanking()
             $items[] = array(
                 'rank'    => $i + 1,
                 'id'      => $code . '-' . $i,
+                'session' => 1,
                 'athlete' => $noms[($i + strlen($code)) % count($noms)],
                 'club'    => $clubs[($i + strlen($descr)) % count($clubs)],
                 'target'  => (1 + $i) . chr(65 + ($i % 4)),
@@ -208,10 +220,24 @@ function ianselp_DemoRanking()
                 'hits'    => 60,
             );
         }
-        $sections[] = array('event' => $code, 'descr' => $descr, 'items' => $items);
+        $sections[] = array('event' => $code, 'descr' => $descr, 'items' => $items, 'live' => array());
     }
 
-    return array('lastUpdate' => time(), 'sections' => $sections);
+    // Départ 2 en cours dans la première épreuve : deux archers qui comptent,
+    // un tir hors classement.
+    $sections[0]['live'] = array(
+        array('id' => 'L1', 'athlete' => 'LAURENT Manon', 'club' => 'CIE DE CORTE', 'target' => '14A', 'session' => 2,
+              'official' => 1, 'state' => 'progress', 'end' => 3, 'ends' => 20, 'score' => 84, 'gold' => 6, 'xnine' => 3,
+              'vrank' => 2, 'vtotal' => 12, 'best' => 87, 'own' => null, 'ownSession' => 0),
+        array('id' => 'L2', 'athlete' => 'SIMON Théo', 'club' => 'ARCHERS DU CAP', 'target' => '15C', 'session' => 2,
+              'official' => 1, 'state' => 'progress', 'end' => 3, 'ends' => 20, 'score' => 88, 'gold' => 7, 'xnine' => 2,
+              'vrank' => 1, 'vtotal' => 12, 'best' => 87, 'own' => null, 'ownSession' => 0),
+        array('id' => 'L3', 'athlete' => 'DUBOIS Chloé', 'club' => 'ASPTT BASTIA', 'target' => '16B', 'session' => 2,
+              'official' => 0, 'state' => 'progress', 'end' => 3, 'ends' => 20, 'score' => 83, 'gold' => 5, 'xnine' => 4,
+              'vrank' => null, 'vtotal' => null, 'best' => null, 'own' => 85, 'ownSession' => 1),
+    );
+
+    return array('lastUpdate' => time(), 'multi' => true, 'sections' => $sections);
 }
 
 /**
