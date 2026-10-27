@@ -27,7 +27,7 @@ Testé sur IANSEO 2026-03-01 (rev 319), PHP 8.2, MariaDB.
 | `mobile.php` | Page mobile des spectateurs : recherche d'un archer, suivi de son score |
 | `Lib/Fun_ianselp.php` | Configuration, liste des épreuves, lecture du classement |
 | `Lib/Fun_ianselp_web.php` | Adresse publique, QR code (SVG), cache de `data.php` |
-| `Lib/Fun_ianselp_departs.php` | Plusieurs départs : archers terminés / en cours, comparaison à volée équivalente |
+| `Lib/Fun_ianselp_departs.php` | Plusieurs départs : classement à volée équivalente |
 
 ## Fonctionnement
 
@@ -70,31 +70,38 @@ sous le module `ianselp`, par tournoi : `events`, `scrollsec`, `refresh`, `rows`
 
 ## Plusieurs départs
 
+Seuls comptent les **premiers départs** des archers (`EnIndFEvent=1`) : c'est le
+classement de la compétition. Les tirs supplémentaires (`EnIndFEvent=0`) ne sont
+jamais affichés.
+
 Quand le 2e départ commence, les archers du 1er sont terminés (60 flèches) et
 ceux du 2e en cours (6 flèches). Les classer ensemble relègue les seconds tout
-en bas. Avec plusieurs départs de qualification, le module sépare donc :
+en bas. Dès qu'un archer d'un départ *antérieur* est terminé dans une épreuve
+alors que d'autres tirent encore, l'épreuve est donc classée **à la volée N** :
+N est la volée atteinte par les archers en cours (la plus basse, pour comparer
+des archers comparables).
 
-- **le classement** : les archers terminés, avec une pastille de départ
-  (`D1`, `D2`) ; les rangs sont renumérotés sans trous, en gardant les égalités
-  officielles ;
-- **le bloc « En cours »** : un archer y passe dès qu'un archer d'un départ
-  *antérieur* est déjà terminé dans la même épreuve. On y lit sa volée (« Volée
-  3/20 »), son score après cette volée, et le rang qu'il aurait si tous les
-  archers de l'épreuve s'étaient arrêtés à la même volée (« 3e/14 · 1er : 87
-  (−3) »). Les tirs hors classement (`EnIndFEvent=0`, même licence + arme + classe
-  qu'un archer qui compte) y figurent aussi, comparés à leur propre départ qui
-  compte (« D1 : 58 (−1) »). Sur l'écran, seuls les tirs en cours sont affichés ;
-  la page mobile retrouve aussi les tirs terminés.
+- Les archers du 1er départ y figurent avec leur score **après N volées**, comme
+  s'ils venaient de tirer cette volée en même temps que ceux du 2e ; leur score
+  final reste indiqué sous leur nom (« Score final : 570 »).
+- Les archers en cours sont mis en évidence, avec leur avancement (« En cours ·
+  volée 3/20 »). Chaque archer porte une pastille de départ (`D1`, `D2`).
+- Le titre de l'épreuve précise « à la volée 3/20 ». Sur la page mobile, chaque
+  carte indique le rang à cette volée (« À la volée 3 : 3e sur 5 · 1er : 87 pts
+  (−3) »), en italique pour ne pas le confondre avec le rang officiel.
+- Quand tout le monde a fini, on retrouve le classement officiel.
 
 Le score à la volée N est relu dans les arrowstrings (`QuD<n>Arrowstring`, une
 lettre par flèche). Seules les volées complètes comptent, les distances
-s'enchaînent, et la comparaison classe par score, puis ors, puis neufs. Les
+s'enchaînent, et le classement se fait par score, puis ors, puis neufs. Les
 volées par distance viennent de `DistanceInformation`.
 
-Limites : le rang à volée équivalente est une indication, pas le classement
-officiel ; un archer dont les flèches n'ont pas été saisies une à une (total
-par distance) n'a pas de comparaison, et l'affichage reste inchangé pour un
-concours à un seul départ ou pour le classement d'une distance.
+Limites : le rang à la volée N est une indication, pas le classement officiel
+(pas de barrage). Un archer dont les flèches n'ont pas été saisies une à une
+(total par distance) ne peut pas être comparé : il est placé en fin de liste. Tant
+qu'aucun archer en cours n'a terminé une volée, il reste masqué. L'affichage ne
+change pas pour un concours à un seul départ, ni pour le classement d'une seule
+distance.
 
 ## Page mobile pour les spectateurs
 
@@ -122,8 +129,9 @@ la ligne d'un archer clignote quand son score change.
   du classement. Le cache est vidé à l'enregistrement des réglages et au
   recalcul.
 - **Qui apparaît.** Les archers du classement officiel (`EnIndFEvent=1`), dès
-  leur première flèche, et avec plusieurs départs les archers en cours et les
-  tirs hors classement (voir ci-dessus).
+  leur première flèche (avec plusieurs départs, un archer du départ suivant
+  apparaît à sa première volée complète). Les tirs supplémentaires n'y figurent
+  pas.
 
 ## Affichage sur un autre poste
 

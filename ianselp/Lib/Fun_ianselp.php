@@ -220,22 +220,39 @@ function ianselp_DemoRanking()
                 'hits'    => 60,
             );
         }
-        $sections[] = array('event' => $code, 'descr' => $descr, 'items' => $items, 'live' => array());
+        $sections[] = array('event' => $code, 'descr' => $descr, 'items' => $items);
     }
 
-    // Départ 2 en cours dans la première épreuve : deux archers qui comptent,
-    // un tir hors classement.
-    $sections[0]['live'] = array(
-        array('id' => 'L1', 'athlete' => 'LAURENT Manon', 'club' => 'CIE DE CORTE', 'target' => '14A', 'session' => 2,
-              'official' => 1, 'state' => 'progress', 'end' => 3, 'ends' => 20, 'score' => 84, 'gold' => 6, 'xnine' => 3,
-              'vrank' => 2, 'vtotal' => 12, 'best' => 87, 'own' => null, 'ownSession' => 0),
-        array('id' => 'L2', 'athlete' => 'SIMON Théo', 'club' => 'ARCHERS DU CAP', 'target' => '15C', 'session' => 2,
-              'official' => 1, 'state' => 'progress', 'end' => 3, 'ends' => 20, 'score' => 88, 'gold' => 7, 'xnine' => 2,
-              'vrank' => 1, 'vtotal' => 12, 'best' => 87, 'own' => null, 'ownSession' => 0),
-        array('id' => 'L3', 'athlete' => 'DUBOIS Chloé', 'club' => 'ASPTT BASTIA', 'target' => '16B', 'session' => 2,
-              'official' => 0, 'state' => 'progress', 'end' => 3, 'ends' => 20, 'score' => 83, 'gold' => 5, 'xnine' => 4,
-              'vrank' => null, 'vtotal' => null, 'best' => null, 'own' => 85, 'ownSession' => 1),
-    );
+    // Première épreuve : le départ 2 en est à sa 3e volée, donc classement à la
+    // volée 3 ; les archers du départ 1 y figurent avec leur score après 3 volées
+    // et leur score final.
+    $rows = array();
+    foreach ($sections[0]['items'] as $i => $it) {
+        $prog = ($i % 3 === 1);
+        $rows[] = array(
+            'rank'    => '',
+            'id'      => $it['id'],
+            'session' => $prog ? 2 : 1,
+            'athlete' => $it['athlete'],
+            'club'    => $it['club'],
+            'target'  => $it['target'],
+            'score'   => rand(78, 90),
+            'gold'    => rand(2, 6),
+            'xnine'   => rand(0, 3),
+            'hits'    => $prog ? 9 : 60,
+            'final'   => $prog ? null : (string)$it['score'],
+            'end'     => $prog ? 3 : null,
+        );
+    }
+    usort($rows, function ($a, $b) { return $b['score'] - $a['score']; });
+    foreach ($rows as $i => $r) {
+        $rows[$i]['rank'] = (string)($i + 1);
+    }
+    $sections[0]['items']   = $rows;
+    $sections[0]['eq']      = 3;
+    $sections[0]['ends']    = 20;
+    $sections[0]['eqTotal'] = count($rows);
+    $sections[0]['eqBest']  = $rows[0]['score'];
 
     return array('lastUpdate' => time(), 'multi' => true, 'sections' => $sections);
 }

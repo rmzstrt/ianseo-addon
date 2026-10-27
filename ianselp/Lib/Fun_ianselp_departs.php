@@ -1,19 +1,23 @@
 <?php
 /**
  * ianselp — Affichage des scores en direct
- * Plusieurs départs : archers « terminés » / « en cours », et comparaison à
- * volée équivalente.
+ * Plusieurs départs : classement à volée équivalente.
+ *
+ * Seuls comptent les premiers départs des archers (EnIndFEvent=1) : c'est le
+ * classement de la compétition. Les tirs supplémentaires (EnIndFEvent=0) ne sont
+ * jamais affichés.
  *
  * Le problème : quand le 2e départ commence, les archers du 1er sont terminés
  * (60 flèches) et ceux du 2e en cours (6 flèches). Les classer ensemble relègue
  * les seconds tout en bas, alors qu'ils peuvent mener.
  *
- * Ici, un archer en cours sort du classement dès qu'un archer d'un départ
- * antérieur est déjà terminé dans la même épreuve. Il passe dans un bloc
- * « en cours » où son score après N volées est comparé à celui de tous les
- * autres archers de l'épreuve après leurs N premières volées. Les tirs hors
- * classement (EnIndFEvent=0, même licence + arme + classe qu'un archer qui
- * compte) y figurent aussi, comparés à leur propre départ qui compte.
+ * La solution : tant qu'un archer en cours est précédé, dans la même épreuve,
+ * d'un archer terminé d'un départ antérieur, l'épreuve est classée « à la
+ * volée N », N étant la volée atteinte par les archers en cours. Les archers du
+ * 1er départ y figurent avec leur score après N volées, comme s'ils venaient de
+ * tirer cette volée en même temps que ceux du 2e départ ; leur score final reste
+ * indiqué en regard. Quand tout le monde a fini, on retrouve le classement
+ * officiel.
  *
  * Les volées sont relues dans les arrowstrings (QuD<n>Arrowstring), une lettre
  * par flèche : voir Common/Lib/ArrTargets.inc.php.
@@ -107,10 +111,7 @@ function ianselp_Cumul(array $dists, array $strings, $goldChars, $xChars)
     return $cum;
 }
 
-/**
- * Toutes les inscriptions ayant tiré, y compris les tirs hors classement
- * (EnIndFEvent=0) que le classement officiel ne renvoie pas.
- */
+/** Flèches et nombre de flèches des archers qui comptent (premiers départs). */
 function ianselp_StageRows($TourId, $numDist)
 {
     $numDist = max(1, min(8, (int)$numDist));
@@ -121,14 +122,11 @@ function ianselp_StageRows($TourId, $numDist)
 
     $rows = array();
     $Rs = safe_r_sql(
-        "SELECT e.EnId, e.EnCode, e.EnDivision, e.EnClass, e.EnIndFEvent,
-                CONCAT(UPPER(e.EnFirstName), ' ', e.EnName) AS Athlete,
-                c.CoName, q.QuSession, q.QuTarget, q.QuLetter, q.QuHits, q.QuScore{$cols}
+        "SELECT e.EnId, q.QuHits{$cols}
            FROM Entries AS e
           INNER JOIN Qualifications AS q ON q.QuId = e.EnId
-           LEFT JOIN Countries AS c ON c.CoId = e.EnCountry AND c.CoTournament = e.EnTournament
           WHERE e.EnTournament=" . StrSafe_DB($TourId) . "
-            AND e.EnAthlete=1 AND e.EnStatus<=1 AND q.QuHits>0"
+            AND e.EnAthlete=1 AND e.EnStatus<=1 AND e.EnIndFEvent=1 AND q.QuHits>0"
     );
     while ($r = safe_fetch($Rs)) {
         $strings = array();
@@ -136,20 +134,7 @@ function ianselp_StageRows($TourId, $numDist)
             $col = 'S' . $d;
             $strings[$d] = (string)$r->$col;
         }
-        $rows[(int)$r->EnId] = array(
-            'id'       => (int)$r->EnId,
-            'code'     => trim((string)$r->EnCode),
-            'div'      => (string)$r->EnDivision,
-            'cls'      => (string)$r->EnClass,
-            'counting' => ((int)$r->EnIndFEvent === 1),
-            'session'  => (int)$r->QuSession,
-            'hits'     => (int)$r->QuHits,
-            'score'    => (int)$r->QuScore,
-            'athlete'  => (string)$r->Athlete,
-            'club'     => (string)$r->CoName,
-            'target'   => ((int)$r->QuTarget > 0 ? $r->QuTarget . $r->QuLetter : ''),
-            'strings'  => $strings,
-        );
+        $rows[(int)$r->EnId] = array('hits' => (int)$r->QuHits, 'strings' => $strings);
     }
     return $rows;
 }
@@ -172,7 +157,7 @@ function ianselp_StageChars($TourId)
     return $out;
 }
 
-/** vrai si (s1,g1,x1) bat (s2,g2,x2) : score, puis ors, puis neufs. */
+/** vrai si (score,ors,neufs) $a bat $b. */
 function ianselp_Beats($a, $b)
 {
     if ($a[0] !== $b[0]) { return $a[0] > $b[0]; }
@@ -181,29 +166,53 @@ function ianselp_Beats($a, $b)
 }
 
 /**
- * Logique pure, sans accès à la base : répartit chaque épreuve en archers
- * terminés (classement) et archers en cours / hors classement (bloc « live »).
+ * Renumérote les rangs numériques sans trous, en gardant les égalités du
+ * classement officiel (les rangs vides ou les codes IRM sont laissés tels quels).
+ */
+function ianselp_Renumber(array $items)
+{
+    $pos = 0;
+    $prevOld = null;
+    $prevNew = null;
+    foreach ($items as &$it) {
+        if (!is_numeric($it['rank']) || (int)$it['rank'] <= 0) {
+            continue;
+        }
+        $pos++;
+        if ($prevOld !== null && (int)$it['rank'] === $prevOld) {
+            $it['rank'] = (string)$prevNew;
+        } else {
+            $prevOld = (int)$it['rank'];
+            $prevNew = $pos;
+            $it['rank'] = (string)$pos;
+        }
+    }
+    unset($it);
+    return $items;
+}
+
+/**
+ * Logique pure, sans accès à la base.
+ *
+ * Pour chaque épreuve où des archers en cours suivent des archers déjà
+ * terminés d'un départ antérieur, classe tous les archers à la volée N.
+ * Les sections concernées reçoivent :
+ *   eq       la volée N du classement ;
+ *   ends     le nombre total de volées du départ ;
+ *   eqTotal  le nombre d'archers classés ;
+ *   eqBest   le meilleur score à la volée N ;
+ * et chaque item : rank, score, gold, xnine à la volée N, ainsi que
+ *   final    le score final, pour un archer terminé (sinon null) ;
+ *   end      les volées terminées, pour un archer en cours (sinon null).
  *
  * @param array $sections sections du classement officiel ; chaque item porte
  *                        id, session, hits, score, rank, athlete, club, target, gold, xnine
- * @param array $rows     inscriptions ayant tiré, par EnId (ianselp_StageRows)
+ * @param array $rows     ianselp_StageRows
  * @param array $plan     ianselp_SessionPlan
  * @param array $chars    ianselp_StageChars
  */
 function ianselp_StageLogic(array $sections, array $rows, array $plan, array $chars)
 {
-    // Pour chaque licence + arme + classe, l'inscription qui compte : le plus petit départ.
-    $twin = array();
-    foreach ($rows as $r) {
-        if (!$r['counting'] || $r['code'] === '') {
-            continue;
-        }
-        $k = $r['code'] . '|' . $r['div'] . '|' . $r['cls'];
-        if (!isset($twin[$k]) || $r['session'] < $twin[$k]['session']) {
-            $twin[$k] = $r;
-        }
-    }
-
     foreach ($sections as &$sec) {
         $G = isset($chars[$sec['event']]) ? $chars[$sec['event']]['g'] : '';
         $X = isset($chars[$sec['event']]) ? $chars[$sec['event']]['x'] : '';
@@ -227,8 +236,8 @@ function ianselp_StageLogic(array $sections, array $rows, array $plan, array $ch
             );
         }
 
-        // 2. Un archer en cours quitte le classement s'il existe déjà, dans cette
-        //    épreuve, un archer terminé d'un départ antérieur.
+        // 2. Les archers « suiveurs » : en cours, alors qu'un archer d'un départ
+        //    antérieur est déjà terminé dans cette épreuve.
         $minDone = null;
         foreach ($sec['items'] as $it) {
             $s = (int)$it['session'];
@@ -236,143 +245,95 @@ function ianselp_StageLogic(array $sections, array $rows, array $plan, array $ch
                 $minDone = $s;
             }
         }
-
-        $kept  = array();
-        $live  = array();
-        $moved = 0;
+        $chasers = array();
         foreach ($sec['items'] as $it) {
-            $id = (int)$it['id'];
-            $i  = $info[$id];
-            if (!empty($i['done']) || $minDone === null || $i['s'] <= $minDone) {
-                $kept[] = $it;
+            $i = $info[(int)$it['id']];
+            if (empty($i['done']) && $minDone !== null && $i['s'] > $minDone) {
+                $chasers[(int)$it['id']] = $i;
+            }
+        }
+        if (!$chasers) {
+            continue;   // classement officiel, tel quel
+        }
+
+        // 3. La volée de comparaison : la plus basse atteinte par les suiveurs
+        //    (ceux qui n'ont pas encore fini leur première volée n'en décident pas).
+        $N = 0;
+        foreach ($chasers as $c) {
+            if ($c['n'] >= 1 && ($N === 0 || $c['n'] < $N)) {
+                $N = $c['n'];
+            }
+        }
+        if ($N === 0) {
+            // Personne n'a fini une volée : rien à comparer, les suiveurs attendent.
+            $kept = array();
+            foreach ($sec['items'] as $it) {
+                if (!isset($chasers[(int)$it['id']])) {
+                    $kept[] = $it;
+                }
+            }
+            $sec['items'] = ianselp_Renumber($kept);
+            continue;
+        }
+
+        // 4. Classement à la volée N.
+        $ranked = array();
+        $tail   = array();
+        foreach ($sec['items'] as $it) {
+            $i = $info[(int)$it['id']];
+            if (!isset($i['n'])) {
+                $it['final'] = null;   // IRM : en fin de liste, tel quel
+                $it['end']   = null;
+                $tail[] = $it;
                 continue;
             }
-
-            $moved++;
-            $n = $i['n'];
-            if ($n > 0) {
-                $at = $i['c'][$n];
+            $upTo = ($i['n'] >= $N) ? $N : $i['n'];   // un archer en retard n'a pas encore sa volée N
+            $at   = $i['c'][$upTo];
+            $row  = array(
+                'rank'    => '',
+                'id'      => $it['id'],
+                'session' => $i['s'],
+                'athlete' => $it['athlete'],
+                'club'    => $it['club'],
+                'target'  => $it['target'],
+                'score'   => $at[0],
+                'gold'    => $at[1],
+                'xnine'   => $at[2],
+                'hits'    => $it['hits'],
+                'final'   => $i['done'] ? (string)$it['score'] : null,
+                'end'     => $i['done'] ? null : $i['n'],
+            );
+            if ($i['n'] >= $N) {
+                $row['k'] = $at;
+                $ranked[] = $row;
             } else {
-                $at = array((int)$it['score'], (int)$it['gold'], (int)$it['xnine']);
+                $tail[] = $row;
             }
-
-            // Rang qu'aurait l'archer si tout le monde s'était arrêté à sa volée N.
-            $vrank = 1;
-            $vtotal = 1;
-            $best = null;
-            if ($n > 0) {
-                foreach ($info as $oid => $o) {
-                    if ($oid === $id || !isset($o['n']) || $o['n'] < $n) {
-                        continue;
-                    }
-                    $vtotal++;
-                    if (ianselp_Beats($o['c'][$n], $at)) {
-                        $vrank++;
-                    }
-                    if ($best === null || $o['c'][$n][0] > $best) {
-                        $best = $o['c'][$n][0];
-                    }
-                }
-            }
-
-            $live[] = array(
-                'id'         => $id,
-                'athlete'    => $it['athlete'],
-                'club'       => $it['club'],
-                'target'     => $it['target'],
-                'session'    => $i['s'],
-                'official'   => 1,
-                'state'      => 'progress',
-                'end'        => $n,
-                'ends'       => $plan[$i['s']]['ends'],
-                'score'      => $at[0],
-                'gold'       => $at[1],
-                'xnine'      => $at[2],
-                'vrank'      => $vrank,
-                'vtotal'     => $vtotal,
-                'best'       => $best,
-                'own'        => null,
-                'ownSession' => 0,
-            );
         }
 
-        // 3. Tirs hors classement : comparés à l'inscription qui compte.
-        foreach ($rows as $r) {
-            if ($r['counting'] || $r['code'] === '' || !isset($plan[$r['session']])) {
-                continue;
-            }
-            $k = $r['code'] . '|' . $r['div'] . '|' . $r['cls'];
-            if (!isset($twin[$k]) || $twin[$k]['session'] === $r['session'] || !isset($info[$twin[$k]['id']])) {
-                continue;
-            }
-            $p = $plan[$r['session']];
-            $c = ianselp_Cumul($p['dists'], $r['strings'], $G, $X);
-            $n = count($c) - 1;
-            $at = $n > 0 ? $c[$n] : array($r['score'], 0, 0);
-
-            $own = null;
-            $ownSession = 0;
-            $t = $info[$twin[$k]['id']];
-            if ($n > 0 && isset($t['n']) && $t['n'] >= $n) {
-                $own = $t['c'][$n][0];
-                $ownSession = $twin[$k]['session'];
-            }
-
-            $live[] = array(
-                'id'         => $r['id'],
-                'athlete'    => $r['athlete'],
-                'club'       => $r['club'],
-                'target'     => $r['target'],
-                'session'    => $r['session'],
-                'official'   => 0,
-                'state'      => ($r['hits'] >= $p['arrows'] || $n >= $p['ends']) ? 'done' : 'progress',
-                'end'        => $n,
-                'ends'       => $p['ends'],
-                'score'      => $at[0],
-                'gold'       => $at[1],
-                'xnine'      => $at[2],
-                'vrank'      => null,
-                'vtotal'     => null,
-                'best'       => null,
-                'own'        => $own,
-                'ownSession' => $ownSession,
-            );
-        }
-
-        usort($live, function ($a, $b) {
-            if ($a['official'] !== $b['official']) {
-                return $b['official'] - $a['official'];
-            }
-            if ($a['score'] !== $b['score']) {
-                return $b['score'] - $a['score'];
-            }
-            return strcmp($a['athlete'], $b['athlete']);
+        usort($ranked, function ($a, $b) {
+            if (ianselp_Beats($a['k'], $b['k'])) { return -1; }
+            if (ianselp_Beats($b['k'], $a['k'])) { return 1; }
+            $c = strcmp($a['athlete'], $b['athlete']);
+            return $c !== 0 ? $c : ((int)$a['id'] - (int)$b['id']);
         });
-
-        // 4. Des archers ont quitté le classement : on le renumérote sans trous,
-        //    en gardant les égalités du classement officiel.
-        if ($moved) {
-            $pos = 0;
-            $prevOld = null;
-            $prevNew = null;
-            foreach ($kept as &$k) {
-                if (!is_numeric($k['rank']) || (int)$k['rank'] <= 0) {
-                    continue;
-                }
-                $pos++;
-                if ($prevOld !== null && (int)$k['rank'] === $prevOld) {
-                    $k['rank'] = (string)$prevNew;
-                } else {
-                    $prevOld = (int)$k['rank'];
-                    $prevNew = $pos;
-                    $k['rank'] = (string)$pos;
-                }
+        $rank = 0;
+        foreach ($ranked as $pos => $r) {
+            if ($pos === 0 || ianselp_Beats($ranked[$pos - 1]['k'], $r['k'])) {
+                $rank = $pos + 1;
             }
-            unset($k);
+            $ranked[$pos]['rank'] = (string)$rank;
+        }
+        foreach ($ranked as $pos => $r) {
+            unset($ranked[$pos]['k']);
         }
 
-        $sec['items'] = $kept;
-        $sec['live']  = $live;
+        $firstChaser = reset($chasers);
+        $sec['items']   = array_merge($ranked, $tail);
+        $sec['eq']      = $N;
+        $sec['ends']    = $plan[$firstChaser['s']]['ends'];
+        $sec['eqTotal'] = count($ranked);
+        $sec['eqBest']  = $ranked ? $ranked[0]['score'] : null;
     }
     unset($sec);
 
@@ -380,7 +341,7 @@ function ianselp_StageLogic(array $sections, array $rows, array $plan, array $ch
 }
 
 /**
- * Point d'entrée : applique la séparation terminé / en cours au classement.
+ * Point d'entrée : applique le classement à volée équivalente quand il le faut.
  *
  * @return array ['sections' => ..., 'multi' => vrai s'il y a plusieurs départs]
  */

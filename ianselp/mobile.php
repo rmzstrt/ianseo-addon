@@ -234,26 +234,14 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
                     xnine:   it.xnine,
                     hits:    it.hits,
                     session: it.session,
-                    live:    null,
+                    // Classement à la volée N (voir Lib/Fun_ianselp_departs.php) : 0 = classement officiel.
+                    eq:      sec.eq || 0,
+                    eqEnds:  sec.ends || 0,
+                    eqTotal: sec.eqTotal || 0,
+                    eqBest:  (sec.eqBest === undefined ? null : sec.eqBest),
+                    final:   (it.final === undefined ? null : it.final),   // score final d'un archer terminé
+                    end:     (it.end === undefined ? null : it.end),       // volées d'un archer en cours
                     hay:     norm(it.athlete + ' ' + it.club)
-                });
-            });
-            // Archers en cours et tirs hors classement (voir Lib/Fun_ianselp_departs.php).
-            (sec.live || []).forEach(function (l) {
-                out.push({
-                    key:     String(l.id),
-                    descr:   sec.descr,
-                    rank:    '',
-                    athlete: l.athlete,
-                    club:    l.club,
-                    target:  l.target,
-                    score:   l.score,
-                    gold:    l.gold,
-                    xnine:   l.xnine,
-                    hits:    '',
-                    session: l.session,
-                    live:    l,
-                    hay:     norm(l.athlete + ' ' + l.club)
                 });
             });
         });
@@ -264,48 +252,39 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
     function signed(n)  { return n > 0 ? '+' + n : (n < 0 ? '−' + Math.abs(n) : '='); }
     function plural(n, word) { return n + ' ' + word + (n > 1 ? 's' : ''); }
 
-    // Où en est un archer en cours, comparé aux autres à la même volée.
-    function cmpText(l) {
-        if (!l.official) {
-            return (l.own !== null && l.own !== undefined)
-                ? 'Départ ' + l.ownSession + ' à la même volée : ' + l.own + ' pts (' + signed(l.score - l.own) + ')'
-                : 'Tir hors classement';
+    // Classement à la volée N : où en est l'archer, comparé à tous les autres
+    // archers de l'épreuve après le même nombre de volées.
+    function cmpText(a) {
+        if (a.rank === '') { return 'Pas encore arrivé à la volée ' + a.eq + ' : non classé pour le moment.'; }
+        var r = parseInt(a.rank, 10);
+        if (isNaN(r)) { return ''; }
+        var t = 'À la volée ' + a.eq + ' : ' + ordinal(r) + ' sur ' + a.eqTotal;
+        if (r > 1 && a.eqBest !== null && /^\d+$/.test(String(a.score))) {
+            t += ' · 1er : ' + a.eqBest + ' pts (' + signed(a.score - a.eqBest) + ')';
         }
-        if (l.end > 0 && l.vtotal > 1) {
-            var at = 'À la volée ' + l.end + ' : ';
-            return l.vrank === 1
-                ? at + '1er' + (l.score > l.best ? ', ' + signed(l.score - l.best) + ' sur le suivant' : ' ex æquo')
-                : at + ordinal(l.vrank) + ' sur ' + l.vtotal + ' · 1er : ' + l.best + ' pts (' + signed(l.score - l.best) + ')';
-        }
-        return l.end > 0 ? 'Aucun autre archer à comparer à cette volée.' : 'Départ en cours.';
+        return t;
     }
 
     function cardHtml(a) {
-        var l = a.live;
+        var eq = a.eq > 0;
         var r = parseInt(a.rank, 10);
         var cls = 'card' + (r === 1 ? ' p1' : r === 2 ? ' p2' : r === 3 ? ' p3' : '') + (flashKeys[a.key] ? ' flash' : '');
         var isNum = /^\d+$/.test(String(a.score));
         var det = '';
         if (isNum) {
-            det = esc(a.gold) + ' &times; ' + esc(labels.gold) + ' &middot; ' + esc(a.xnine) + ' &times; ' + esc(labels.xnine) + '<br>';
-            if (!l) { det += plural(parseInt(a.hits, 10) || 0, 'flèche'); }
-            else if (l.state === 'done') { det += 'terminé'; }
-            else if (l.end > 0) { det += 'après ' + plural(l.end, 'volée'); }
+            det = esc(a.gold) + ' &times; ' + esc(labels.gold) + ' &middot; ' + esc(a.xnine) + ' &times; ' + esc(labels.xnine) + '<br>'
+                + (eq ? 'à la volée ' + esc(a.eq) : plural(parseInt(a.hits, 10) || 0, 'flèche'));
         }
 
-        // Rang : le classement officiel, ou pour un archer en cours le rang qu'il
-        // aurait à sa volée (en italique, pour ne pas le confondre).
+        // Rang : le classement officiel, ou à la volée N (en italique, pour ne pas le confondre).
         var rk = a.rank === '' ? '&ndash;' : esc(a.rank);
-        var rkCls = a.rank === '' ? ' none' : '';
-        if (l && l.official && l.end > 0 && l.vtotal > 1) { rk = ordinal(l.vrank); rkCls = ' virt'; }
+        var rkCls = a.rank === '' ? ' none' : (eq ? ' virt' : '');
 
         var chips = '<span class="chip">' + esc(a.descr) + '</span>';
         if (multi && a.session) { chips += '<span class="chip">Départ ' + esc(a.session) + '</span>'; }
         if (a.target) { chips += '<span class="chip tgt">Cible ' + esc(a.target) + '</span>'; }
-        if (l) {
-            chips += l.state === 'progress' ? '<span class="chip live">En cours</span>' : '<span class="chip">Terminé</span>';
-            if (!l.official) { chips += '<span class="chip live">Hors classement</span>'; }
-        }
+        if (eq && a.end !== null) { chips += '<span class="chip live">En cours · volée ' + esc(a.end) + '/' + esc(a.eqEnds) + '</span>'; }
+        if (eq && a.final !== null) { chips += '<span class="chip">Score final ' + esc(a.final) + '</span>'; }
 
         var on = !!fav[a.key];
         return '<article class="' + cls + '">'
@@ -313,7 +292,7 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
              +   '<div class="who"><h3>' + esc(a.athlete) + '</h3>'
              +     '<div class="club">' + esc(a.club) + '</div>'
              +     '<div class="chips">' + chips + '</div>'
-             +     (l ? '<div class="cmp">' + esc(cmpText(l)) + '</div>' : '') + '</div>'
+             +     (eq ? '<div class="cmp">' + esc(cmpText(a)) + '</div>' : '') + '</div>'
              +   '<div class="side"><div><div class="score">' + esc(a.score) + '</div><div class="det">' + det + '</div></div>'
              +     starHtml(a.key, a.athlete, on) + '</div>'
              + '</article>';

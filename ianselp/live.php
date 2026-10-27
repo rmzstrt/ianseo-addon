@@ -144,18 +144,16 @@ footer {
 .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
          font-size: 4vh; color: var(--muted); text-align: center; }
 
-/* Plusieurs départs : pastille « D1 », puis bloc des archers en cours. */
+/* Plusieurs départs : pastille « D1 », et classement à la volée N (archers en cours en couleur). */
 .dep { display: inline-block; margin-left: .6vh; padding: 0 .6vh; border: .15vh solid var(--line); border-radius: .6vh;
        font-size: calc(var(--font-row) * .5); font-weight: 600; color: var(--muted); vertical-align: middle; }
-tbody tr.livehead { height: calc(var(--row-h) * .75); background: transparent; }
-tbody tr.livehead td { color: var(--accent); font-size: calc(var(--font-row) * .6); text-transform: uppercase;
-                       letter-spacing: .06em; padding-top: calc(var(--row-h) * .15); }
-tbody tr.live { height: calc(var(--row-h) * 1.5); }
-tbody tr.live .c-rank .dep { margin: 0; color: var(--accent); border-color: var(--accent); font-size: calc(var(--font-row) * .6); }
-tbody tr.live td.c-ath .nm { display: block; overflow: hidden; text-overflow: ellipsis; }
-tbody tr.live td.c-ath .sub { display: block; overflow: hidden; text-overflow: ellipsis; font-size: calc(var(--font-row) * .64);
-                              font-weight: 400; color: var(--muted); }
-tbody tr.live.off td.c-ath .nm { color: var(--muted); }
+h2 small.eq { font-size: .62em; font-weight: 400; color: var(--muted); letter-spacing: .04em; }
+tbody tr.eq { height: calc(var(--row-h) * 1.5); }
+tbody tr.eq td.c-ath .nm { display: block; overflow: hidden; text-overflow: ellipsis; }
+tbody tr.eq td.c-ath .sub { display: block; overflow: hidden; text-overflow: ellipsis; font-size: calc(var(--font-row) * .64);
+                            font-weight: 400; color: var(--muted); }
+tbody tr.eq.prog td.c-ath .nm { color: var(--accent); }
+tbody tr.eq.prog .c-rank .dep { color: var(--accent); border-color: var(--accent); }
 
 /* QR code de la page mobile (pied d'écran) et version plein écran (touche Q). */
 footer .qr { display: flex; align-items: center; gap: 1.2vw; flex: none; }
@@ -261,71 +259,44 @@ footer .qr svg { display: block; flex: none; width: 15vh; height: 15vh; border-r
         $main.style.setProperty('--gap', Math.floor(h * 0.6) + 'px');
     }
 
-    function ordinal(n) { return n === 1 ? '1er' : n + 'e'; }
-    function signed(n)  { return n > 0 ? '+' + n : (n < 0 ? '−' + Math.abs(n) : '='); }
-
     function depBadge(session) {
         return (multi && session) ? '<small class="dep">D' + esc(session) + '</small>' : '';
     }
 
-    function liveOf(section) {
-        return (section.live || []).filter(function (l) { return l.state === 'progress'; });
-    }
-
-    // Ligne d'explication sous le nom d'un archer en cours : sa volée, et où il
-    // se classerait si tous les archers de l'épreuve s'étaient arrêtés à cette volée.
-    function liveSub(l) {
-        var p = [l.end > 0 ? 'Volée ' + l.end + '/' + l.ends : 'En cours'];
-        if (!l.official) {
-            p.push('hors classement');
-            if (l.own !== null && l.own !== undefined) {
-                p.push('D' + l.ownSession + ' : ' + l.own + ' (' + signed(l.score - l.own) + ')');
-            }
-        } else if (l.end > 0 && l.vtotal > 1) {
-            if (l.vrank === 1) {
-                p.push(l.score > l.best ? '1er · ' + signed(l.score - l.best) : '1er ex æquo');
-            } else {
-                p.push(ordinal(l.vrank) + '/' + l.vtotal);
-                p.push('1er : ' + l.best + ' (' + signed(l.score - l.best) + ')');
-            }
-        }
-        return p.join(' · ');
-    }
-
-    function liveRows(section) {
-        var rows = liveOf(section);
-        if (!rows.length) { return ''; }
-        var html = '<tr class="livehead"><td colspan="6">En cours · score comparé à la même volée</td></tr>';
-        rows.forEach(function (l) {
-            html += '<tr class="live' + (l.official ? '' : ' off') + '">'
-                 +  '<td class="c-rank"><small class="dep">D' + esc(l.session) + '</small></td>'
-                 +  '<td class="c-ath"><span class="nm">' + esc(l.athlete) + '</span>'
-                 +      '<span class="sub">' + esc(liveSub(l)) + '</span></td>'
-                 +  '<td class="c-club">'  + esc(l.club)  + '</td>'
-                 +  '<td class="c-score">' + esc(l.score) + '</td>'
-                 +  '<td class="c-g">'     + esc(l.gold)  + '</td>'
-                 +  '<td class="c-x">'     + esc(l.xnine) + '</td>'
-                 +  '</tr>';
-        });
-        return html;
+    // Classement à la volée N (section.eq > 0) : les archers du départ précédent
+    // y sont comptés après N volées, comme s'ils venaient de tirer en même temps
+    // que ceux du départ en cours. Sous le nom : leur score final, ou leur avancement.
+    function eqSub(section, it) {
+        if (it.final !== null && it.final !== undefined) { return 'Score final : ' + it.final; }
+        if (it.end !== null && it.end !== undefined)     { return 'En cours · volée ' + it.end + '/' + section.ends; }
+        return '';
     }
 
     function sectionHtml(section) {
+        var eq = section.eq > 0;
         var html = '<section data-descr="' + esc(section.descr) + '">'
-                 + '<h2>' + esc(section.descr) + '</h2><table><tbody>';
+                 + '<h2>' + esc(section.descr)
+                 + (eq ? ' <small class="eq">· à la volée ' + esc(section.eq) + '/' + esc(section.ends) + '</small>' : '')
+                 + '</h2><table><tbody>';
         section.items.forEach(function (it) {
             var r = parseInt(it.rank, 10);
             var cls = (r === 1 ? 'p1' : r === 2 ? 'p2' : r === 3 ? 'p3' : '');
+            var name = esc(it.athlete);
+            if (eq) {
+                cls += ' eq' + (it.end !== null && it.end !== undefined ? ' prog' : '');
+                var sub = eqSub(section, it);
+                name = '<span class="nm">' + name + '</span>' + (sub ? '<span class="sub">' + esc(sub) + '</span>' : '');
+            }
             html += '<tr class="' + cls + '">'
                  +  '<td class="c-rank">'  + esc(it.rank) + depBadge(it.session) + '</td>'
-                 +  '<td class="c-ath">'   + esc(it.athlete) + '</td>'
+                 +  '<td class="c-ath">'   + name + '</td>'
                  +  '<td class="c-club">'  + esc(it.club)    + '</td>'
                  +  '<td class="c-score">' + esc(it.score)   + '</td>'
                  +  '<td class="c-g">'     + esc(it.gold)    + '</td>'
                  +  '<td class="c-x">'     + esc(it.xnine)   + '</td>'
                  +  '</tr>';
         });
-        return html + liveRows(section) + '</tbody></table></section>';
+        return html + '</tbody></table></section>';
     }
 
     function render(sections) {
@@ -353,7 +324,7 @@ footer .qr svg { display: block; flex: none; width: 15vh; height: 15vh; border-r
         fitRows();
         measure();
 
-        var total = sections.reduce(function (n, s) { return n + s.items.length + liveOf(s).length; }, 0);
+        var total = sections.reduce(function (n, s) { return n + s.items.length; }, 0);
         document.getElementById('summary').textContent =
             sections.length + ' épreuve' + (sections.length > 1 ? 's' : '') +
             ' · ' + total + ' archer' + (total > 1 ? 's' : '');
