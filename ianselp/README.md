@@ -107,10 +107,16 @@ distance.
 
 Un QR code s'affiche en bas de l'écran (touche **Q** : en grand). Il ouvre
 `mobile.php?tour=<ToId>` sur le téléphone : on tape un nom d'archer ou de club
-(sans accent ni majuscule, plusieurs mots dans n'importe quel ordre), et la
-page affiche le rang, le score, la cible et l'épreuve. L'étoile garde l'archer
-dans le téléphone (`localStorage`, par concours) : il remonte en tête à la
-visite suivante. Les scores se rafraîchissent seuls toutes les 10 s au plus et
+(sans accent ni majuscule, plusieurs mots dans n'importe quel ordre).
+
+Ce qui s'affiche, c'est **le classement de toute la catégorie de l'archer**,
+l'archer en évidence (un score seul ne dit pas où il se situe face à ses
+concurrents) : rang, nom, club, score, ors et neufs, départ et cible. S'il y a
+plusieurs résultats, on touche l'archer voulu (« Retour » ramène à la liste) ;
+s'il n'y en a qu'un, on va droit au classement. L'étoile garde l'archer dans le
+téléphone (`localStorage`, par concours) : à la visite suivante, la page ouvre
+directement le classement de la catégorie de chaque archer suivi, qui reste
+mis en évidence. Les scores se rafraîchissent seuls toutes les 10 s au plus et
 la ligne d'un archer clignote quand son score change.
 
 - **Adresse.** Un téléphone ne peut pas atteindre `localhost`. Le réglage

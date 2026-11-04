@@ -2,8 +2,11 @@
 /**
  * ianselp — Affichage des scores en direct
  * Page mobile pour les spectateurs : on cherche « son » archer par nom ou par
- * club, et on suit son score. Les archers marqués d'une étoile sont gardés
- * dans le téléphone (localStorage) et remontent en tête à la visite suivante.
+ * club, et la page affiche le classement de toute sa catégorie, l'archer en
+ * évidence : un score seul ne dit pas où se situe l'archer face à ses
+ * concurrents. Les archers marqués d'une étoile sont gardés dans le téléphone
+ * (localStorage) : à la visite suivante, le classement de leur catégorie
+ * s'affiche directement.
  *
  * Page autonome, en lecture seule, sans session IANSEO (comme live.php) :
  * elle interroge data.php, dont la réponse est mise en cache côté serveur.
@@ -45,6 +48,8 @@ $dataUrl = $CFG->ROOT_DIR . 'Modules/Custom/' . basename(dirname(__FILE__))
     --muted:   #5b6b86;
     --line:    #dde3ee;
     --accent:  #9a5b00;
+    --hl:      rgba(154, 91, 0, .09);
+    --sel:     rgba(154, 91, 0, .20);
     --flash:   #fff0c2;
     --ok:      #15803d;
     --ko:      #b91c1c;
@@ -60,6 +65,8 @@ $dataUrl = $CFG->ROOT_DIR . 'Modules/Custom/' . basename(dirname(__FILE__))
         --muted:   #8ea3c4;
         --line:    #24344f;
         --accent:  #ffc043;
+        --hl:      rgba(255, 192, 67, .10);
+        --sel:     rgba(255, 192, 67, .22);
         --flash:   #4a3a10;
         --ok:      #4ade80;
         --ko:      #f87171;
@@ -110,42 +117,53 @@ body {
 .msg { padding: 32px 24px; text-align: center; color: var(--muted); }
 .msg b { display: block; margin-bottom: 6px; color: var(--fg); font-size: 18px; }
 
-.card {
-    display: grid; grid-template-columns: 40px 1fr auto; gap: 4px 12px;
-    margin: 10px 16px; padding: 12px 8px 12px 14px;
-    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-}
-.card.flash { animation: flash 3s ease-out; }
-@keyframes flash { from { background: var(--flash); } to { background: var(--card); } }
-@media (prefers-reduced-motion: reduce) { .card.flash { animation: none; } }
+/* Un classement : l'en-tête (catégorie) puis une ligne par archer. */
+.cat { margin: 12px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.cat-head { padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+.cat-head h2 { font-size: 17px; line-height: 1.25; }
+.cat-head p { font-size: 13px; color: var(--muted); }
+.cat-head p.note { margin-top: 6px; }
+.back { display: inline-block; min-height: 36px; margin: -6px 0 2px -6px; padding: 6px 10px; font: inherit; font-size: 15px;
+        color: var(--accent); background: none; border: 0; cursor: pointer; }
 
-.rk { font-size: 26px; font-weight: 800; text-align: center; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.row { display: flex; align-items: stretch; border-top: 1px solid var(--line); }
+.cat-head + .row { border-top: 0; }
+.row.hl  { background: var(--hl);  box-shadow: inset 4px 0 0 var(--accent); }
+.row.sel { background: var(--sel); box-shadow: inset 4px 0 0 var(--accent); }
+.row.flash { animation: flash 3s ease-out; }
+@keyframes flash { from { background: var(--flash); } }
+@media (prefers-reduced-motion: reduce) { .row.flash { animation: none; } }
+
+.pick { flex: 1; min-width: 0; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 0 10px;
+        padding: 10px 2px 10px 12px; }
+.pick[role="button"] { cursor: pointer; }
+.pick:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.rk { font-size: 22px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
 .rk.none { color: var(--muted); font-weight: 400; }
-.card.p1 .rk { color: var(--podium1); }
-.card.p2 .rk { color: var(--podium2); }
-.card.p3 .rk { color: var(--podium3); }
+.rk.virt { font-size: 18px; font-style: italic; padding-top: 2px; }
+.row.p1 .rk { color: var(--podium1); }
+.row.p2 .rk { color: var(--podium2); }
+.row.p3 .rk { color: var(--podium3); }
 
 .who { min-width: 0; }
-.who h3 { font-size: 17px; line-height: 1.25; overflow-wrap: anywhere; }
-.who .club { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.chip { font-size: 12px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
-.chip.tgt, .chip.live { color: var(--accent); border-color: var(--accent); }
-.rk.virt { font-size: 20px; font-style: italic; color: var(--muted); padding-top: 5px; }
-.cmp { margin-top: 8px; font-size: 13px; line-height: 1.35; }
+.who b { display: block; font-size: 16px; line-height: 1.25; overflow-wrap: anywhere; }
+.who .club, .who .sub { display: block; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.who .sub { font-size: 12px; margin-top: 2px; }
+.who .live { color: var(--accent); }
 
-.side { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
-.score { font-size: 30px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.det { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.sc { text-align: right; }
+.sc b { display: block; font-size: 24px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.sc small { display: block; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 .star {
-    width: 44px; height: 44px; margin-top: 2px; font-size: 26px; line-height: 1;
+    align-self: center; width: 44px; height: 44px; font-size: 24px; line-height: 1;
     background: none; border: 0; color: var(--muted); cursor: pointer; border-radius: 10px;
 }
 .star[aria-pressed="true"] { color: var(--accent); }
 .star:focus-visible { outline: 2px solid var(--accent); }
 
-.card.wait { opacity: .75; }
-.card.wait .score { font-size: 14px; font-weight: 400; color: var(--muted); }
+.row.wait .who b { font-weight: 600; }
 
 footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size: 12px; color: var(--muted); text-align: center; }
 </style>
@@ -179,7 +197,8 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
     var MAX_SHOWN = 40;
     var MIN_REFRESH = 10;   // les téléphones n'ont pas besoin d'aller plus vite que ça
 
-    var all      = [];                       // archers aplatis
+    var all      = [];                       // une entrée par archer et par catégorie
+    var cats     = {};                       // code d'épreuve -> catégorie et son classement
     var labels   = { gold: '10+', xnine: 'X' };
     var refresh  = 15;
     var loaded   = false;
@@ -187,6 +206,8 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
     var multi    = false;                    // plusieurs départs : on précise « Départ 2 »
     var lastOk   = 0;
     var query    = '';
+    var view     = null;                     // archer ouvert depuis la liste : { event, key }
+    var lastSel  = null;                     // archer sur lequel on a déjà fait défiler l'écran
     var fav      = loadFav();                // clé -> nom
     var prevScore = {};                      // clé -> dernier score vu
     var flashKeys = {};
@@ -214,16 +235,28 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
     }
     function norm(s) {
         s = String(s === null || s === undefined ? '' : s).toLowerCase();
-        return s.normalize ? s.normalize('NFD').replace(/[̀-ͯ]/g, '') : s;
+        return s.normalize ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : s;
     }
     function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function plural(n, word) { return n + ' ' + word + (n > 1 ? 's' : ''); }
 
+    // Aplatit les sections en une liste d'archers (pour la recherche) et un
+    // classement par catégorie (pour l'affichage).
     function flatten(sections) {
-        var out = [];
+        var list = [], byEvent = {};
         sections.forEach(function (sec) {
+            var cat = {
+                event:   sec.event,
+                descr:   sec.descr,
+                // Classement à la volée N (voir Lib/Fun_ianselp_departs.php) : 0 = classement officiel.
+                eq:      sec.eq || 0,
+                eqEnds:  sec.ends || 0,
+                rows:    []
+            };
             sec.items.forEach(function (it) {
-                out.push({
+                var a = {
                     key:     (it.id !== undefined && it.id !== null && it.id !== '') ? String(it.id) : sec.event + '|' + it.athlete,
+                    event:   sec.event,
                     descr:   sec.descr,
                     rank:    it.rank,
                     athlete: it.athlete,
@@ -232,70 +265,19 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
                     score:   it.score,
                     gold:    it.gold,
                     xnine:   it.xnine,
-                    hits:    it.hits,
                     session: it.session,
-                    // Classement à la volée N (voir Lib/Fun_ianselp_departs.php) : 0 = classement officiel.
-                    eq:      sec.eq || 0,
-                    eqEnds:  sec.ends || 0,
-                    eqTotal: sec.eqTotal || 0,
-                    eqBest:  (sec.eqBest === undefined ? null : sec.eqBest),
+                    eq:      cat.eq,
+                    eqEnds:  cat.eqEnds,
                     final:   (it.final === undefined ? null : it.final),   // score final d'un archer terminé
                     end:     (it.end === undefined ? null : it.end),       // volées d'un archer en cours
                     hay:     norm(it.athlete + ' ' + it.club)
-                });
+                };
+                cat.rows.push(a);
+                list.push(a);
             });
+            byEvent[sec.event] = cat;
         });
-        return out;
-    }
-
-    function ordinal(n) { return n === 1 ? '1er' : n + 'e'; }
-    function signed(n)  { return n > 0 ? '+' + n : (n < 0 ? '−' + Math.abs(n) : '='); }
-    function plural(n, word) { return n + ' ' + word + (n > 1 ? 's' : ''); }
-
-    // Classement à la volée N : où en est l'archer, comparé à tous les autres
-    // archers de l'épreuve après le même nombre de volées.
-    function cmpText(a) {
-        if (a.rank === '') { return 'Pas encore arrivé à la volée ' + a.eq + ' : non classé pour le moment.'; }
-        var r = parseInt(a.rank, 10);
-        if (isNaN(r)) { return ''; }
-        var t = 'À la volée ' + a.eq + ' : ' + ordinal(r) + ' sur ' + a.eqTotal;
-        if (r > 1 && a.eqBest !== null && /^\d+$/.test(String(a.score))) {
-            t += ' · 1er : ' + a.eqBest + ' pts (' + signed(a.score - a.eqBest) + ')';
-        }
-        return t;
-    }
-
-    function cardHtml(a) {
-        var eq = a.eq > 0;
-        var r = parseInt(a.rank, 10);
-        var cls = 'card' + (r === 1 ? ' p1' : r === 2 ? ' p2' : r === 3 ? ' p3' : '') + (flashKeys[a.key] ? ' flash' : '');
-        var isNum = /^\d+$/.test(String(a.score));
-        var det = '';
-        if (isNum) {
-            det = esc(a.gold) + ' &times; ' + esc(labels.gold) + ' &middot; ' + esc(a.xnine) + ' &times; ' + esc(labels.xnine) + '<br>'
-                + (eq ? 'à la volée ' + esc(a.eq) : plural(parseInt(a.hits, 10) || 0, 'flèche'));
-        }
-
-        // Rang : le classement officiel, ou à la volée N (en italique, pour ne pas le confondre).
-        var rk = a.rank === '' ? '&ndash;' : esc(a.rank);
-        var rkCls = a.rank === '' ? ' none' : (eq ? ' virt' : '');
-
-        var chips = '<span class="chip">' + esc(a.descr) + '</span>';
-        if (multi && a.session) { chips += '<span class="chip">Départ ' + esc(a.session) + '</span>'; }
-        if (a.target) { chips += '<span class="chip tgt">Cible ' + esc(a.target) + '</span>'; }
-        if (eq && a.end !== null) { chips += '<span class="chip live">En cours · volée ' + esc(a.end) + '/' + esc(a.eqEnds) + '</span>'; }
-        if (eq && a.final !== null) { chips += '<span class="chip">Score final ' + esc(a.final) + '</span>'; }
-
-        var on = !!fav[a.key];
-        return '<article class="' + cls + '">'
-             +   '<div class="rk' + rkCls + '">' + rk + '</div>'
-             +   '<div class="who"><h3>' + esc(a.athlete) + '</h3>'
-             +     '<div class="club">' + esc(a.club) + '</div>'
-             +     '<div class="chips">' + chips + '</div>'
-             +     (eq ? '<div class="cmp">' + esc(cmpText(a)) + '</div>' : '') + '</div>'
-             +   '<div class="side"><div><div class="score">' + esc(a.score) + '</div><div class="det">' + det + '</div></div>'
-             +     starHtml(a.key, a.athlete, on) + '</div>'
-             + '</article>';
+        return { list: list, cats: byEvent };
     }
 
     function starHtml(key, name, on) {
@@ -303,11 +285,63 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
              + ' aria-label="' + (on ? 'Ne plus suivre ' : 'Suivre ') + esc(name) + '">' + (on ? '&#9733;' : '&#9734;') + '</button>';
     }
 
+    // Une ligne : rang, archer, score. En liste de résultats (o.open), toucher la ligne
+    // ouvre le classement de la catégorie ; o.cat y ajoute le nom de la catégorie.
+    function rowHtml(a, o) {
+        var eq = a.eq > 0;
+        var r = parseInt(a.rank, 10);
+        var cls = 'row' + (r === 1 ? ' p1' : r === 2 ? ' p2' : r === 3 ? ' p3' : '')
+                + (fav[a.key] ? ' hl' : '') + (o.sel ? ' sel' : '') + (flashKeys[a.key] ? ' flash' : '');
+
+        // Rang officiel ; à la volée N, en italique pour ne pas le confondre.
+        var rk = a.rank === '' ? '&ndash;' : esc(a.rank);
+        var rkCls = a.rank === '' ? ' none' : (eq ? ' virt' : '');
+
+        var sub = [];
+        if (o.cat) { sub.push(esc(a.descr)); }
+        if (multi && a.session) { sub.push('Départ ' + esc(a.session)); }
+        if (a.target) { sub.push('Cible ' + esc(a.target)); }
+
+        var state = '';
+        if (eq && a.end !== null) { state = '<span class="sub live">En cours · volée ' + esc(a.end) + '/' + esc(a.eqEnds) + '</span>'; }
+        else if (eq && a.final !== null) { state = '<span class="sub">Score final ' + esc(a.final) + '</span>'; }
+
+        var det = /^\d+$/.test(String(a.score))
+            ? esc(a.gold) + '&times;' + esc(labels.gold) + ' &middot; ' + esc(a.xnine) + '&times;' + esc(labels.xnine)
+            : '';
+
+        var inner = '<div class="rk' + rkCls + '">' + rk + '</div>'
+                  + '<div class="who"><b>' + esc(a.athlete) + '</b><span class="club">' + esc(a.club) + '</span>'
+                  +   (sub.length ? '<span class="sub">' + sub.join(' &middot; ') + '</span>' : '') + state + '</div>'
+                  + '<div class="sc"><b>' + esc(a.score) + '</b><small>' + det + '</small></div>';
+
+        var pick = o.open
+            ? '<div class="pick" role="button" tabindex="0" data-event="' + esc(a.event) + '" data-key="' + esc(a.key) + '">' + inner + '</div>'
+            : '<div class="pick">' + inner + '</div>';
+        return '<div class="' + cls + '">' + pick + starHtml(a.key, a.athlete, !!fav[a.key]) + '</div>';
+    }
+
+    // Le classement d'une catégorie ; o.sel met un archer en évidence, o.back ajoute « Retour ».
+    function catHtml(cat, o) {
+        var head = '<div class="cat-head">'
+                 + (o.back ? '<button class="back" type="button">&lsaquo; Retour</button>' : '')
+                 + '<h2>' + esc(cat.descr) + '</h2>'
+                 + '<p>' + plural(cat.rows.length, 'archer') + (cat.eq ? ' &middot; classement à la volée ' + esc(cat.eq) + '/' + esc(cat.eqEnds) : '') + '</p>'
+                 + (cat.eq ? '<p class="note">Les archers du départ précédent sont comptés après ' + plural(cat.eq, 'volée')
+                           + ', comme s\'ils tiraient en même temps que ceux du départ en cours.</p>' : '')
+                 + '</div>';
+        return '<section class="cat">' + head
+             + cat.rows.map(function (a) { return rowHtml(a, { sel: a.key === o.sel }); }).join('') + '</section>';
+    }
+
     // Archer suivi mais pas (encore) dans le classement.
-    function waitHtml(key, name) {
-        return '<article class="card wait"><div class="rk none">&ndash;</div>'
-             + '<div class="who"><h3>' + esc(name) + '</h3><div class="club">Pas encore de score</div></div>'
-             + '<div class="side"><div></div>' + starHtml(key, name, true) + '</div></article>';
+    function waitHtml(waiting) {
+        return '<section class="cat"><div class="cat-head"><h2>En attente de score</h2></div>'
+             + waiting.map(function (w) {
+                 return '<div class="row wait"><div class="pick"><div class="rk none">&ndash;</div>'
+                      + '<div class="who"><b>' + esc(w.name) + '</b><span class="club">Pas encore de score</span></div><div class="sc"></div></div>'
+                      + starHtml(w.key, w.name, true) + '</div>';
+             }).join('') + '</section>';
     }
 
     function msg(title, text) {
@@ -316,11 +350,14 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
 
     function render() {
         var q = norm(query).trim();
-        var html = '', count = '';
+        var html = '', count = '', sel = null;
 
         if (!loaded) {
             html = failed ? msg('Connexion impossible', 'Nouvel essai automatique dans quelques secondes.')
                           : msg('Chargement…', '');
+        } else if (view && cats[view.event]) {
+            html = catHtml(cats[view.event], { sel: view.key, back: true });
+            sel = view.key;
         } else if (q.length >= 2) {
             var tokens = q.split(/\s+/);
             var hits = all.filter(function (a) {
@@ -329,28 +366,39 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
             hits.sort(function (a, b) { return (fav[b.key] ? 1 : 0) - (fav[a.key] ? 1 : 0); });   // tri stable : l'ordre du classement est conservé
             if (!hits.length) {
                 html = msg('Aucun résultat pour « ' + query.trim() + ' »',
-                           'Un archer apparaît dès sa première flèche enregistrée. Vérifiez l\'orthographe ou réessayez dans quelques minutes.');
+                           'Un archer apparaît dès que ses premières flèches sont enregistrées. Vérifiez l\'orthographe ou réessayez dans quelques minutes.');
+            } else if (hits.length === 1) {
+                // Un seul archer : on va droit au classement de sa catégorie.
+                html = catHtml(cats[hits[0].event], { sel: hits[0].key });
+                sel = hits[0].key;
             } else {
-                count = hits.length + ' archer' + (hits.length > 1 ? 's' : '') + ' trouvé' + (hits.length > 1 ? 's' : '')
-                      + (hits.length > MAX_SHOWN ? ' — les ' + MAX_SHOWN + ' premiers sont affichés, précisez la recherche' : '');
-                html = hits.slice(0, MAX_SHOWN).map(cardHtml).join('');
+                count = hits.length + ' archers trouvés'
+                      + (hits.length > MAX_SHOWN ? ' — les ' + MAX_SHOWN + ' premiers sont affichés, précisez la recherche' : '')
+                      + ' · touchez un archer pour voir le classement de sa catégorie';
+                html = '<section class="cat">' + hits.slice(0, MAX_SHOWN).map(function (a) {
+                    return rowHtml(a, { open: true, cat: true });
+                }).join('') + '</section>';
             }
         } else if (q.length === 1) {
             html = msg('Encore une lettre…', 'Tapez au moins deux caractères.');
+        } else if (Object.keys(fav).length) {
+            // Mes archers : le classement de chaque catégorie suivie, les archers suivis en évidence.
+            var seen = {}, order = [], present = {}, waiting = [];
+            all.forEach(function (a) { present[a.key] = true; });
+            Object.keys(fav).forEach(function (k) {
+                if (!present[k]) { waiting.push({ key: k, name: fav[k] }); return; }
+                all.forEach(function (a) {
+                    if (a.key === k && !seen[a.event]) { seen[a.event] = true; order.push(a.event); }
+                });
+            });
+            count = 'Mes archers';
+            html = order.map(function (ev) { return catHtml(cats[ev], {}); }).join('') + (waiting.length ? waitHtml(waiting) : '');
+        } else if (!all.length) {
+            html = msg('En attente des premiers scores…', 'La liste se remplit au fil du tir.');
         } else {
-            var keys = Object.keys(fav);
-            if (keys.length) {
-                var present = {};
-                all.forEach(function (a) { present[a.key] = a; });
-                count = 'Mes archers';
-                html = keys.map(function (k) { return present[k] ? cardHtml(present[k]) : waitHtml(k, fav[k]); }).join('');
-            } else if (!all.length) {
-                html = msg('En attente des premiers scores…', 'La liste se remplit au fil du tir.');
-            } else {
-                var n = all.length;
-                html = msg('Qui voulez-vous suivre ?',
-                           'Tapez un nom ou un club, puis touchez l\'étoile pour garder l\'archer sous la main. ' + n + ' archer' + (n > 1 ? 's' : '') + ' classé' + (n > 1 ? 's' : '') + ' pour l\'instant.');
-            }
+            html = msg('Qui voulez-vous suivre ?',
+                       'Tapez un nom ou un club : vous verrez le classement de la catégorie de l\'archer. Touchez l\'étoile pour le garder sous la main. '
+                       + plural(all.length, 'archer') + ' classé' + (all.length > 1 ? 's' : '') + ' pour l\'instant.');
         }
 
         $count.textContent = count;
@@ -359,6 +407,13 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
             lastHtml = html;
         }
         flashKeys = {};
+
+        // On amène l'archer choisi au milieu de l'écran, une seule fois (pas à chaque rafraîchissement).
+        if (sel !== lastSel) {
+            var el = sel ? $list.querySelector('.row.sel') : null;
+            if (el && el.scrollIntoView) { el.scrollIntoView({ block: 'center' }); }
+            lastSel = sel;
+        }
     }
 
     function setStatus(ok) {
@@ -394,10 +449,12 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
                 document.getElementById('title').textContent = json.title || '';
                 document.title = json.title ? json.title + ' — suivre un archer' : 'Suivre un archer';
                 document.getElementById('foot').textContent =
-                    'Scores provisoires, actualisés toutes les ' + Math.max(refresh, MIN_REFRESH) + ' secondes. Un archer apparaît dès sa première flèche.';
+                    'Scores provisoires, actualisés toutes les ' + Math.max(refresh, MIN_REFRESH) + ' secondes. Un archer apparaît dès que ses premières flèches sont enregistrées.';
 
                 multi = !!json.multi;
-                all = flatten(json.sections || []);
+                var flat = flatten(json.sections || []);
+                all  = flat.list;
+                cats = flat.cats;
                 all.forEach(function (a) {
                     if (prevScore[a.key] !== undefined && prevScore[a.key] !== String(a.score)) { flashKeys[a.key] = true; }
                     prevScore[a.key] = String(a.score);
@@ -418,22 +475,57 @@ footer { padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); font-size:
             });
     }
 
-    $q.addEventListener('input', function () { query = $q.value; render(); });
-
-    $list.addEventListener('click', function (e) {
-        var b = e.target.closest ? e.target.closest('.star') : null;
-        if (!b) { return; }
-        var key = b.getAttribute('data-key');
-        if (fav[key]) {
-            delete fav[key];
-        } else {
-            var name = key;
-            all.forEach(function (a) { if (a.key === key) { name = a.athlete; } });
-            fav[key] = name;
-        }
-        saveFav();
+    function open(el) {
+        view = { event: el.getAttribute('data-event'), key: el.getAttribute('data-key') };
         lastHtml = null;
         render();
+    }
+
+    $q.addEventListener('input', function () {
+        query = $q.value;
+        view = null;
+        lastSel = null;
+        render();
+    });
+
+    $list.addEventListener('click', function (e) {
+        var t = e.target.closest ? e.target : null;
+        if (!t) { return; }
+
+        var star = t.closest('.star');
+        if (star) {
+            var key = star.getAttribute('data-key');
+            if (fav[key]) {
+                delete fav[key];
+            } else {
+                var name = key;
+                all.forEach(function (a) { if (a.key === key) { name = a.athlete; } });
+                fav[key] = name;
+            }
+            saveFav();
+            lastHtml = null;
+            render();
+            return;
+        }
+
+        if (t.closest('.back')) {
+            view = null;
+            lastSel = null;
+            lastHtml = null;
+            render();
+            window.scrollTo(0, 0);
+            return;
+        }
+
+        var pick = t.closest('.pick[data-key]');
+        if (pick) { open(pick); }
+    });
+
+    $list.addEventListener('keydown', function (e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.pick[data-key]')) {
+            e.preventDefault();
+            open(e.target);
+        }
     });
 
     document.addEventListener('visibilitychange', function () { if (!document.hidden) { load(); } });
