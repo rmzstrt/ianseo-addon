@@ -50,6 +50,25 @@ chaque enregistrement de feuille de marque (`Qualification/UpdateQuals.php`) ou
 de flèche ISK (`Qualification/UpdateArrow.php`). Le module ne calcule ni
 n'écrit aucun score.
 
+## Couleurs : lisible en plein jour
+
+L'écran est conçu pour un vidéoprojecteur dans une salle éclairée : la lumière
+ambiante s'ajoute à l'image et délave tout (il n'y a plus de vrai noir). Le
+thème est donc clair :
+
+- **noir sur blanc** pour les noms et les scores (le contraste le plus solide
+  une fois l'image délavée) ;
+- **grands aplats bleu foncé à texte blanc** pour l'en-tête, le pied d'écran et
+  les titres d'épreuve ;
+- pas de gris moyens ni de zébrures pâles, qui disparaissent en plein jour : des
+  traits épais séparent les lignes ;
+- podium en pastilles pleines (or, argent, bronze) à texte noir ;
+- avec plusieurs départs, une pastille de couleur par départ (D1 bleu, D2
+  orange foncé, D3 vert, D4 violet) et les archers en cours sur fond ambre avec
+  une barre orange.
+
+Toutes les couleurs sont des variables CSS en tête de `live.php` (`:root`).
+
 ## Rang non calculé
 
 IANSEO stocke le rang dans `Individuals`, mais lit le score directement depuis

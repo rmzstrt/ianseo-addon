@@ -48,19 +48,29 @@ $qrSvg = $mobileUrl !== '' ? ianselp_QrSvg($mobileUrl) : '';
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scores en direct</title>
 <style>
+/* Thème clair, pensé pour un vidéoprojecteur en plein jour : la lumière de la salle
+   délave l'image, il n'y a plus de vrai noir. On garde donc du noir sur blanc pour les
+   données, de grands aplats foncés à texte blanc pour la structure, et pas de gris
+   moyens ni de zébrures pâles (elles disparaissent). */
 :root {
-    --bg:      #0b1220;
-    --bg-alt:  #131d31;
-    --panel:   #16223a;
-    --line:    #24344f;
-    --fg:      #eef3fb;
-    --muted:   #8ea3c4;
-    --accent:  #ffc043;
-    --podium1: #ffd75e;
-    --podium2: #cfd8e3;
-    --podium3: #d99a5b;
-    --ok:      #4ade80;
-    --ko:      #f87171;
+    --bg:       #ffffff;
+    --bg-alt:   #eaf0fa;
+    --band:     #08224f;   /* en-tête et pied d'écran */
+    --title:    #0f3d91;   /* titres d'épreuve */
+    --cols:     #cfdcf2;   /* rappel des colonnes */
+    --line:     #5b6f94;
+    --fg:       #000000;
+    --muted:    #1f2937;
+    --on-band:  #d6e4ff;
+    --accent:   #ffd23f;   /* sur les aplats foncés */
+    --prog-bg:  #ffe6b8;   /* archers en cours */
+    --prog-bar: #e8590c;
+    --prog-fg:  #7a2e0e;
+    --podium1:  #ffc400;
+    --podium2:  #c4ccd8;
+    --podium3:  #e8975a;
+    --ok:       #5ee08a;
+    --ko:       #ff8a8a;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
@@ -79,17 +89,16 @@ header {
     align-items: center;
     gap: 1.5vw;
     padding: 1.2vh 2vw;
-    background: var(--panel);
-    border-bottom: 0.3vh solid var(--line);
+    background: var(--band);
     flex: none;
 }
-.title { font-size: 2.4vh; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+.title { font-size: 2.4vh; color: var(--on-band); text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
 .event { flex: 1; font-size: 3.6vh; font-weight: 700; color: var(--accent); text-align: center;
          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.meta  { display: flex; align-items: center; gap: 1vw; font-size: 2.4vh; color: var(--muted); white-space: nowrap; }
+.meta  { display: flex; align-items: center; gap: 1vw; font-size: 2.4vh; color: #fff; white-space: nowrap; }
 .dot   { width: 1.2vh; height: 1.2vh; border-radius: 50%; background: var(--ok); }
 .dot.stale { background: var(--ko); }
-.badge { font-size: 1.8vh; padding: .3vh .8vh; border-radius: .5vh; background: var(--ko); color: #fff; letter-spacing: .05em; }
+.badge { font-size: 1.8vh; padding: .3vh .8vh; border-radius: .5vh; background: #b91c1c; color: #fff; letter-spacing: .05em; }
 
 /* Fenêtre de défilement : le contenu déborde, on le translate. */
 main { flex: 1; position: relative; overflow: hidden; padding: 0 2vw; min-height: 0; }
@@ -98,78 +107,84 @@ main { flex: 1; position: relative; overflow: hidden; padding: 0 2vw; min-height
 section { padding-bottom: var(--gap); }
 h2 {
     font-size: calc(var(--font-row) * 1.15);
-    color: var(--accent);
+    background: var(--title);
+    color: #fff;
     font-weight: 700;
-    padding: calc(var(--row-h) * .35) 0 calc(var(--row-h) * .15);
-    border-bottom: .3vh solid var(--line);
+    padding: calc(var(--row-h) * .3) 1vw calc(var(--row-h) * .15);
+    margin-top: calc(var(--row-h) * .15);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-tbody td { padding: 0 .8vw; border-bottom: .1vh solid var(--line); white-space: nowrap;
+tbody td { padding: 0 .8vw; border-bottom: .3vh solid var(--line); white-space: nowrap;
            overflow: hidden; text-overflow: ellipsis; }
 tbody tr { height: var(--row-h); }
 tbody tr:nth-child(even) { background: var(--bg-alt); }
 
-.c-rank    { width: 8%;  text-align: center; font-weight: 700; }
-.c-ath     { width: 40%; font-weight: 600; }
-.c-club    { width: 26%; color: var(--muted); }
-.c-score   { width: 12%; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
-.c-g, .c-x { width: 7%;  text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.c-rank    { width: 11%; text-align: center; font-weight: 700; padding: 0 .3vw; }
+.c-ath     { width: 38%; font-weight: 700; }
+.c-club    { width: 25%; color: var(--muted); font-weight: 600; }
+.c-score   { width: 12%; text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+.c-g, .c-x { width: 7%;  text-align: right; color: var(--fg); font-weight: 700; font-variant-numeric: tabular-nums; }
 
 tbody td.c-rank, tbody td.c-ath, tbody td.c-club { font-size: var(--font-row); }
 tbody td.c-score { font-size: calc(var(--font-row) * 1.05); }
 tbody td.c-g, tbody td.c-x { font-size: calc(var(--font-row) * 0.85); }
 
-tr.p1 .c-rank { color: var(--podium1); }
-tr.p2 .c-rank { color: var(--podium2); }
-tr.p3 .c-rank { color: var(--podium3); }
+/* Podium : pastilles pleines à texte noir. */
+tr.p1 .rk, tr.p2 .rk, tr.p3 .rk { display: inline-block; min-width: calc(var(--font-row) * 1.3); padding: 0 .6vh; border-radius: .8vh; }
+tr.p1 .rk { background: var(--podium1); }
+tr.p2 .rk { background: var(--podium2); }
+tr.p3 .rk { background: var(--podium3); }
 
 /* Rappel des colonnes, figé sous l'en-tête. */
 .cols {
     display: flex; flex: none;
-    padding: .6vh 2vw; background: var(--panel);
-    font-size: 2vh; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
-    border-bottom: .1vh solid var(--line);
+    padding: .6vh 2vw; background: var(--cols);
+    font-size: 2vh; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #000;
+    border-bottom: .5vh solid var(--band);
 }
-.cols span { padding: 0 .8vw; }
+.cols span { padding: 0 .8vw; color: #000; font-weight: 800; }
 .cols .c-ath, .cols .c-club { text-align: left; }
 
 footer {
     display: flex; align-items: center; justify-content: space-between; gap: 1.5vw;
-    padding: 1vh 2vw; background: var(--panel); border-top: .3vh solid var(--line);
-    font-size: 2vh; color: var(--muted); flex: none;
+    padding: 1vh 2vw; background: var(--band);
+    font-size: 2vh; color: var(--on-band); flex: none;
 }
 
 .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-         font-size: 4vh; color: var(--muted); text-align: center; }
+         font-size: 4vh; font-weight: 700; color: var(--muted); text-align: center; }
 
-/* Plusieurs départs : pastille « D1 », et classement à la volée N (archers en cours en couleur). */
-.dep { display: inline-block; margin-left: .6vh; padding: 0 .6vh; border: .15vh solid var(--line); border-radius: .6vh;
-       font-size: calc(var(--font-row) * .5); font-weight: 600; color: var(--muted); vertical-align: middle; }
-h2 small.eq { font-size: .62em; font-weight: 400; color: var(--muted); letter-spacing: .04em; }
+/* Plusieurs départs : pastille « D1 » colorée, et classement à la volée N (archers en cours surlignés). */
+.dep { display: inline-block; margin-left: .6vh; padding: 0 .6vh; border-radius: .6vh; background: #0f3d91; color: #fff;
+       font-size: calc(var(--font-row) * .5); font-weight: 600; vertical-align: middle; }
+.dep.d2 { background: #9a3300; }
+.dep.d3 { background: #0f5c25; }
+.dep.d4 { background: #6b21a8; }
+h2 small.eq { font-size: .62em; font-weight: 600; color: #ffe08a; letter-spacing: .04em; }
 tbody tr.eq { height: calc(var(--row-h) * 1.5); }
 tbody tr.eq td.c-ath .nm { display: block; overflow: hidden; text-overflow: ellipsis; }
 tbody tr.eq td.c-ath .sub { display: block; overflow: hidden; text-overflow: ellipsis; font-size: calc(var(--font-row) * .64);
-                            font-weight: 400; color: var(--muted); }
-tbody tr.eq.prog td.c-ath .nm { color: var(--accent); }
-tbody tr.eq.prog .c-rank .dep { color: var(--accent); border-color: var(--accent); }
+                            font-weight: 600; color: var(--muted); }
+tbody tr.eq.prog { background: var(--prog-bg); box-shadow: inset 1.2vh 0 0 var(--prog-bar); }
+tbody tr.eq.prog td.c-ath .sub { color: var(--prog-fg); font-weight: 800; }
 
 /* QR code de la page mobile (pied d'écran) et version plein écran (touche Q). */
 footer .qr { display: flex; align-items: center; gap: 1.2vw; flex: none; }
-footer .qr-text { text-align: right; line-height: 1.25; }
+footer .qr-text { text-align: right; line-height: 1.25; color: #fff; }
 footer .qr-text b { display: block; font-size: 2.8vh; color: var(--accent); }
 footer .qr svg { display: block; flex: none; width: 15vh; height: 15vh; border-radius: .8vh; }
 
 #qrBig {
     position: fixed; inset: 0; z-index: 10;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh;
-    background: rgba(11, 18, 32, .97); text-align: center; padding: 0 4vw;
+    background: #fff; text-align: center; padding: 0 4vw;
 }
 #qrBig[hidden] { display: none; }
-#qrBig h1 { font-size: 6vh; color: var(--accent); }
-#qrBig svg { display: block; width: min(60vh, 80vw); height: min(60vh, 80vw); border-radius: 1.5vh; }
-#qrBig p { font-size: 3vh; color: var(--muted); word-break: break-all; }
+#qrBig h1 { font-size: 6vh; color: var(--title); }
+#qrBig svg { display: block; width: min(60vh, 80vw); height: min(60vh, 80vw); border: .6vh solid var(--band); border-radius: 1.5vh; }
+#qrBig p { font-size: 3vh; font-weight: 600; color: var(--fg); word-break: break-all; }
 </style>
 </head>
 <body>
@@ -260,7 +275,9 @@ footer .qr svg { display: block; flex: none; width: 15vh; height: 15vh; border-r
     }
 
     function depBadge(session) {
-        return (multi && session) ? '<small class="dep">D' + esc(session) + '</small>' : '';
+        // Une couleur par départ (D1 bleu, D2 orange, D3 vert, D4 violet), pour les distinguer de loin.
+        var n = ((parseInt(session, 10) || 1) - 1) % 4 + 1;
+        return (multi && session) ? '<small class="dep d' + n + '">D' + esc(session) + '</small>' : '';
     }
 
     // Classement à la volée N (section.eq > 0) : les archers du départ précédent
@@ -288,7 +305,7 @@ footer .qr svg { display: block; flex: none; width: 15vh; height: 15vh; border-r
                 name = '<span class="nm">' + name + '</span>' + (sub ? '<span class="sub">' + esc(sub) + '</span>' : '');
             }
             html += '<tr class="' + cls + '">'
-                 +  '<td class="c-rank">'  + esc(it.rank) + depBadge(it.session) + '</td>'
+                 +  '<td class="c-rank"><span class="rk">' + esc(it.rank) + '</span>' + depBadge(it.session) + '</td>'
                  +  '<td class="c-ath">'   + name + '</td>'
                  +  '<td class="c-club">'  + esc(it.club)    + '</td>'
                  +  '<td class="c-score">' + esc(it.score)   + '</td>'
